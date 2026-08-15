@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: TypeScript and browser checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check packages
+        run: pnpm check
+      - name: Exercise desktop interface
+        run: pnpm --filter @opendevice/desktop test:e2e
+      - name: Exercise product site
+        run: pnpm --filter @opendevice/site test:e2e
+
+  rust:
+    name: Rust read-only bridge
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Use stable Rust
+        run: rustup update stable
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Test bridge
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+      - name: Lint bridge
+        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --all-targets -- -D warnings

@@ -1,0 +1,81 @@
+name: Draft desktop release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }} package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+            artifact: macos
+          - os: windows-latest
+            label: Windows
+            artifact: windows
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Use stable Rust
+        run: rustup update stable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build and attach unsigned packages to a draft
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: OpenDevice Forge ${{ github.ref_name }}
+          releaseBody: |
+            Automated unsigned preview build. Verify the checksum before use.
+            This draft is not a compatibility claim for any specific phone.
+          releaseDraft: true
+          prerelease: false
+      - name: Create macOS checksums
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          checksum_file="checksums-macos.txt"
+          find apps/desktop/src-tauri/target/release/bundle -type f \( -name '*.dmg' -o -name '*.app.tar.gz' \) -print0 | while IFS= read -r -d '' file; do
+            hash="$(shasum -a 256 "$file" | awk '{print $1}')"
+            printf '%s  %s\n' "$hash" "$(basename "$file")" >> "$checksum_file"
+          done
+          test -s "$checksum_file"
+      - name: Create Windows checksums
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem "apps/desktop/src-tauri/target/release/bundle" -Recurse -File | Where-Object { $_.Extension -in ".msi", ".exe", ".zip" }
+          if ($files.Count -eq 0) { throw "No Windows bundle was produced." }
+          $lines = $files | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
+          $lines | Set-Content "checksums-windows.txt"
+      - name: Attach checksum to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" "checksums-${{ matrix.artifact }}.txt" --clobber
+      - name: Preserve checksum as workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: checksums-${{ matrix.artifact }}
+          path: checksums-${{ matrix.artifact }}.txt
+          if-no-files-found: error

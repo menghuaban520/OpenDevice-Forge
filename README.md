@@ -21,4 +21,19 @@ pnpm install
 pnpm check
 ```
 
+Run the desktop interface or product site in a browser:
+
+```sh
+pnpm --filter @opendevice/desktop dev
+pnpm --filter @opendevice/site dev
+```
+
+Build a native package for the current operating system:
+
+```sh
+pnpm --filter @opendevice/desktop tauri build
+```
+
+The native build is unsigned unless platform signing credentials are supplied deliberately. Pushing a `v*` tag after a remote repository exists triggers macOS and Windows draft builds; it does not publish the product site.
+
 No remote repository, public deployment, signed package, or real-device compatibility claim is included by default.
