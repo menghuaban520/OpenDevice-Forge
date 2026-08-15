@@ -1,27 +1,17 @@
 import {
-  BatteryMedium,
   ChevronRight,
-  CircleAlert,
-  CircleCheck,
-  Cpu,
-  FileDown,
-  HardDrive,
   PackageSearch,
-  RefreshCw,
   ShieldCheck,
   Smartphone,
-  Usb,
 } from "lucide-react";
-import type { DeviceSnapshot, ReadinessAssessment } from "@opendevice/core";
+import type { DeviceSnapshot } from "@opendevice/core";
 import { deviceDisplayName } from "../../components/AppShell";
 
 interface DeviceOverviewProps {
   snapshot: DeviceSnapshot;
-  readiness: ReadinessAssessment;
   connectionMessage: string;
   onRefresh: () => void;
   onNavigatePlugins: () => void;
-  onExportReport: () => void;
 }
 
 const value = <T,>(fact: { value: T | null }, formatter?: (value: T) => string) =>
@@ -45,11 +35,9 @@ const connectionHelp = (connection: DeviceSnapshot["connection"]): string => {
 
 export function DeviceOverview({
   snapshot,
-  readiness,
   connectionMessage,
   onRefresh,
   onNavigatePlugins,
-  onExportReport,
 }: DeviceOverviewProps) {
   const displayName = deviceDisplayName(snapshot);
   const connected = snapshot.connection === "ready";
@@ -65,14 +53,7 @@ export function DeviceOverview({
     <div className="page overview-page">
       <div className="page-toolbar overview-toolbar">
         <div className="breadcrumb"><span>{displayName}</span><ChevronRight size={14} /><strong>设备</strong></div>
-        <span className="toolbar-context">Android · 只读检测</span>
-        <button type="button" className="icon-button" aria-label="重新检测" onClick={onRefresh}><RefreshCw /></button>
-      </div>
-
-      <div className="quick-actions compact-actions">
-        <button type="button" onClick={onRefresh}><RefreshCw /><span>重新检测</span></button>
-        <button type="button" onClick={onExportReport} disabled={!connected}><FileDown /><span>生成报告</span></button>
-        <button type="button" onClick={onNavigatePlugins}><PackageSearch /><span>查找插件</span></button>
+        <span className="toolbar-context">Android 设备入口</span>
       </div>
 
       <div className="overview-grid device-first-grid">
@@ -96,25 +77,13 @@ export function DeviceOverview({
           <p className="source-note"><ShieldCheck size={14} />基础识别读取 Android 标准属性，不依赖品牌机型名单</p>
         </section>
 
-        <section className="panel action-panel next-step-panel">
-          <h2>接下来</h2>
-          <button type="button" onClick={onRefresh}><Usb /><span>{connected ? "更新设备信息" : "完成连接检查"}</span><ChevronRight size={16} /></button>
-          <button type="button" onClick={onNavigatePlugins}><PackageSearch /><span>查看适合当前设备的插件</span><ChevronRight size={16} /></button>
-          <button type="button" onClick={onExportReport} disabled={!connected}><FileDown /><span>导出只读检测报告</span><ChevronRight size={16} /></button>
-        </section>
-
-        <section className="panel readiness-panel">
-          <div className="readiness-heading">
-            {connected ? (readiness.verdict === "not_ready" ? <CircleAlert /> : <CircleCheck />) : <CircleAlert />}
-            <div><h2>{connected ? "轻量模型基础条件" : "连接后再判断适配"}</h2><p>{connected ? readiness.summary : "未取得真机数据前，不判断内存、架构或模型兼容性。"}</p></div>
+        <section className="panel plugin-entry-panel">
+          <PackageSearch />
+          <div>
+            <h2>用插件继续</h2>
+            <p>检测、实验和本机服务都从插件市场安装，再进入独立工作台运行。</p>
           </div>
-          {connected ? (
-            <div className="readiness-facts">
-              <span><Cpu />{value(snapshot.abi)}</span>
-              <span><HardDrive />{value(snapshot.storageAvailableBytes, (bytes) => `${(bytes / 1024 ** 3).toFixed(1)} GB 可用`)}</span>
-              <span><BatteryMedium />{value(snapshot.batteryPercent, (percent) => `${percent}%`)}</span>
-            </div>
-          ) : null}
+          <button className="primary-button" type="button" onClick={onNavigatePlugins}>浏览插件市场</button>
         </section>
       </div>
     </div>

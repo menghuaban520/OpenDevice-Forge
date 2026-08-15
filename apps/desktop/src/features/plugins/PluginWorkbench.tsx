@@ -261,13 +261,13 @@ export function PluginWorkbench<TContext>({
         ))}
       </div>
 
-      <main className="workbench-content">
+      <div className="workbench-content">
         {tab === "run" ? (
           <section className="workbench-run" role="tabpanel">
             <div className="workbench-run-card">
               <div className="run-card-copy">
                 <span>当前任务</span>
-                <h2>{manifest.name}</h2>
+                <h2>运行当前配置</h2>
                 <p>插件只会执行配置中已启用的项目，结果保留在本机工作台。</p>
               </div>
               <div className="run-card-action">
@@ -355,7 +355,7 @@ export function PluginWorkbench<TContext>({
             )}
           </section>
         ) : null}
-      </main>
+      </div>
     </div>
   );
 }

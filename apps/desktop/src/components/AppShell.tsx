@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Home, LockKeyhole, PlugZap, ShieldCheck } from "lucide-react";
+import { Home, PlugZap } from "lucide-react";
 import type { DeviceSnapshot } from "@opendevice/core";
 import type { AdbDeviceSummary } from "../lib/device-client";
 
-export type AppPage = "overview" | "plugins" | "layout";
+export type AppPage = "overview" | "plugins" | "workbench";
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,12 +15,11 @@ interface AppShellProps {
   selectedSerial: string | null;
   onSelectDevice: (sessionSerial: string) => void;
   connectionLabel: string;
-  safeMode: boolean;
 }
 
 const navItems: Array<{ page: "overview" | "plugins"; label: string; icon: typeof Home }> = [
   { page: "overview", label: "设备", icon: Home },
-  { page: "plugins", label: "插件", icon: PlugZap },
+  { page: "plugins", label: "插件市场", icon: PlugZap },
 ];
 
 const clean = (value: string | null) => value?.trim() || null;
@@ -60,7 +59,6 @@ export function AppShell({
   selectedSerial,
   onSelectDevice,
   connectionLabel,
-  safeMode,
 }: AppShellProps) {
   const displayName = deviceDisplayName(snapshot);
 
@@ -70,9 +68,6 @@ export function AppShell({
         <div className="titlebar-brand">
           <img src="/assets/app-mark.svg" alt="" />
           <span>OpenDevice Forge</span>
-        </div>
-        <div className="window-controls" aria-hidden="true">
-          <span>—</span><span>□</span><span>×</span>
         </div>
       </header>
 
@@ -104,39 +99,29 @@ export function AppShell({
         </button>
 
         <div className="rail-divider" />
-        <p className="rail-group-title">核心（不可移除）</p>
-        <nav className="rail-nav" aria-label="核心导航">
+        <nav className="rail-nav" aria-label="主导航">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active = item.page === "plugins"
+              ? page === "plugins" || page === "workbench"
+              : page === item.page;
             return (
               <button
                 key={item.page}
                 type="button"
-                className={page === item.page ? "active" : ""}
+                className={active ? "active" : ""}
                 onClick={() => onNavigate(item.page)}
                 aria-label={item.label}
               >
                 <Icon size={19} />
                 <span>{item.label}</span>
-                <LockKeyhole size={13} />
               </button>
             );
           })}
         </nav>
-
-        <div className="rail-principle">
-          <ShieldCheck size={17} />
-          <div><strong>默认只读</strong><span>不刷机、不解锁、不修改手机</span></div>
-        </div>
       </aside>
 
       <main className="workspace">{children}</main>
-
-      <footer className="safety-strip">
-        <div><ShieldCheck size={16} /><strong>只读模式</strong></div>
-        <span title={connectionLabel}>当前没有对手机执行任何修改</span>
-        {safeMode ? <span className="safe-mode-note">插件安全模式已开启</span> : null}
-      </footer>
     </div>
   );
 }

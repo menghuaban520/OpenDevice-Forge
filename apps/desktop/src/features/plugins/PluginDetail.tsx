@@ -13,8 +13,10 @@ import type { InstalledPlugin, PluginManifest, PluginRegistryAction } from "@ope
 interface PluginDetailProps {
   manifest: PluginManifest;
   installed?: InstalledPlugin;
+  runtimeAvailable: boolean;
+  safeMode: boolean;
   onAction: (action: PluginRegistryAction) => void;
-  onEditLayout: () => void;
+  onOpen: () => void;
 }
 
 const iconFor = (id: string) => {
@@ -48,10 +50,17 @@ const contributionText: Record<string, string> = {
   contextAction: "设备快捷动作",
 };
 
-export function PluginDetail({ manifest, installed, onAction, onEditLayout }: PluginDetailProps) {
+export function PluginDetail({
+  manifest,
+  installed,
+  runtimeAvailable,
+  safeMode,
+  onAction,
+  onOpen,
+}: PluginDetailProps) {
   const Icon = iconFor(manifest.id);
   const isRootGuide = manifest.id === "dev.opendevice.root-guide";
-  const hasConfiguration = manifest.contributes.some((item) => item.type === "configuration");
+  const canOpen = Boolean(installed?.enabled && !safeMode);
 
   return (
     <div className="plugin-detail-grid">
@@ -60,14 +69,16 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
           <div className="plugin-icon-large"><Icon /></div>
           <div><h2>{manifest.name}</h2><p>{manifest.summary}</p></div>
           <div className="plugin-lifecycle">
-            {installed ? (
+            {!runtimeAvailable ? (
+              <span className="runtime-unavailable">尚未接入运行器</span>
+            ) : installed ? (
               <>
                 <label className="switch-label">
-                  <span className="sr-only">启用 {manifest.name}</span>
+                  <span className="sr-only">启用{manifest.name}</span>
                   <input
                     type="checkbox"
                     role="switch"
-                    aria-label={`启用 ${manifest.name}`}
+                    aria-label={`启用${manifest.name}`}
                     checked={installed.enabled}
                     disabled={manifest.protected}
                     onChange={() => onAction({
@@ -80,12 +91,19 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
                 <strong className={installed.enabled ? "state-enabled" : "state-disabled"}>
                   {installed.enabled ? "已启用" : "已停用"}
                 </strong>
+                <button
+                  className="primary-button"
+                  type="button"
+                  aria-label={`打开${manifest.name}`}
+                  disabled={!canOpen}
+                  onClick={onOpen}
+                >打开插件</button>
               </>
             ) : (
               <button
                 className="primary-button"
                 type="button"
-                aria-label={`安装 ${manifest.name}`}
+                aria-label={`安装${manifest.name}`}
                 onClick={() => onAction({ type: "install", manifest })}
               >安装插件</button>
             )}
@@ -105,7 +123,7 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
         ) : null}
 
         <div className="detail-section">
-          <div className="section-heading"><h3>这个插件能做什么</h3><button type="button" onClick={onEditLayout}>自定义插件位置</button></div>
+          <div className="section-heading"><h3>这个插件能做什么</h3></div>
           {manifest.contributes.map((contribution) => (
             <div className="contribution-row" key={contribution.id}>
               <CircleCheck />
@@ -113,7 +131,6 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
               <span>{contribution.defaultPlacement ? "默认显示" : "按需使用"}</span>
             </div>
           ))}
-          {!hasConfiguration ? <p className="permission-note">此插件没有专属设置，启用后即可使用。</p> : null}
         </div>
 
         <div className="detail-section permission-section">
@@ -125,7 +142,7 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
 
         {installed && !manifest.protected ? (
           <div className="plugin-secondary-actions">
-            <button type="button" onClick={() => onAction({ type: "rollback", pluginId: manifest.id })}><RotateCcw />回退版本</button>
+            {installed.previousVersions.length > 0 ? <button type="button" onClick={() => onAction({ type: "rollback", pluginId: manifest.id })}><RotateCcw />回退版本</button> : null}
             <button className="danger-text" type="button" onClick={() => onAction({ type: "uninstall", pluginId: manifest.id })}>卸载插件</button>
           </div>
         ) : null}

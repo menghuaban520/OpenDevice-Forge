@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyPluginAction,
-  assessReadiness,
   BUILTIN_PLUGINS,
-  createDeviceReport,
   createPluginRegistry,
-  toMarkdownReport,
+  isPluginEffective,
+  isPluginRunnable,
   type DeviceSnapshot,
-  type LayoutProfile,
+  type PluginConfiguration,
+  type PluginManifest,
   type PluginRegistryAction,
   type PluginRegistryState,
 } from "@opendevice/core";
 import { AppShell, type AppPage } from "./components/AppShell";
 import { DeviceOverview } from "./features/overview/DeviceOverview";
-import { createAcceptedLayoutProfiles, LayoutEditor } from "./features/plugins/LayoutEditor";
 import { PluginMarket } from "./features/plugins/PluginMarket";
+import { PluginWorkbench } from "./features/plugins/PluginWorkbench";
+import { createDesktopPluginRuntimes } from "./features/plugins/runtime/registry";
+import {
+  loadPluginConfigurations,
+  savePluginConfigurations,
+  type PluginConfigurationRecord,
+} from "./features/plugins/runtime/storage";
 import {
   ALL_INSPECTION_GROUPS,
   createDeviceClient,
@@ -30,17 +36,12 @@ interface AppProps {
 }
 
 const initialRegistry = () => createPluginRegistry(
-  BUILTIN_PLUGINS.filter((manifest) => [
-    "kernel.plugin-manager",
-    "dev.opendevice.device-inspection",
-    "dev.opendevice.ai-readiness",
-    "dev.opendevice.remote-gateway",
-  ].includes(manifest.id)),
+  BUILTIN_PLUGINS.filter((manifest) => manifest.id === "kernel.plugin-manager"),
 );
 
 const loadRegistry = (): PluginRegistryState => {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem("opendevice.registry.v1") ?? "null") as PluginRegistryState | null;
+    const parsed = JSON.parse(window.localStorage.getItem("opendevice.registry.v2") ?? "null") as PluginRegistryState | null;
     if (parsed?.plugins?.["kernel.plugin-manager"]?.manifest.protected === true && Array.isArray(parsed.audit)) {
       return parsed;
     }
@@ -48,16 +49,6 @@ const loadRegistry = (): PluginRegistryState => {
     // Invalid preferences are ignored so the protected kernel can recover.
   }
   return initialRegistry();
-};
-
-const loadProfiles = (): LayoutProfile[] => {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem("opendevice.layouts.v1") ?? "null") as LayoutProfile[] | null;
-    if (Array.isArray(parsed) && parsed.some((profile) => profile.id === "default")) return parsed;
-  } catch {
-    // Invalid layout data falls back to the accepted profile set.
-  }
-  return createAcceptedLayoutProfiles();
 };
 
 const fact = <T,>(value: T | null) =>
@@ -103,15 +94,18 @@ const snapshotFromUsbHint = (hint: UsbDeviceHint): DeviceSnapshot => ({
 
 export function App({ deviceClient }: AppProps) {
   const client = useMemo(() => deviceClient ?? createDeviceClient(), [deviceClient]);
+  const runtimes = useMemo(() => createDesktopPluginRuntimes(client), [client]);
   const [page, setPage] = useState<AppPage>("overview");
   const [registry, setRegistry] = useState(loadRegistry);
-  const [profiles, setProfiles] = useState<LayoutProfile[]>(loadProfiles);
+  const [configurations, setConfigurations] = useState<PluginConfigurationRecord>(
+    () => loadPluginConfigurations(window.localStorage),
+  );
+  const [workbenchPluginId, setWorkbenchPluginId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<DeviceSnapshot>(() => emptySnapshot());
   const [devices, setDevices] = useState<AdbDeviceSummary[]>([]);
   const [selectedSerial, setSelectedSerial] = useState<string | null>(null);
   const [connectionMessage, setConnectionMessage] = useState("正在检测设备…");
   const refreshSequence = useRef(0);
-  const readiness = useMemo(() => assessReadiness(snapshot), [snapshot]);
 
   const refreshDevice = useCallback(async (preferredSerial?: string) => {
     const sequence = ++refreshSequence.current;
@@ -175,12 +169,12 @@ export function App({ deviceClient }: AppProps) {
   }, [refreshDevice]);
 
   useEffect(() => {
-    window.localStorage.setItem("opendevice.registry.v1", JSON.stringify(registry));
+    window.localStorage.setItem("opendevice.registry.v2", JSON.stringify(registry));
   }, [registry]);
 
   useEffect(() => {
-    window.localStorage.setItem("opendevice.layouts.v1", JSON.stringify(profiles));
-  }, [profiles]);
+    savePluginConfigurations(window.localStorage, configurations);
+  }, [configurations]);
 
   const handlePluginAction = (action: PluginRegistryAction) => {
     setRegistry((current) => applyPluginAction(current, action).state);
@@ -198,15 +192,25 @@ export function App({ deviceClient }: AppProps) {
     void refreshDevice(sessionSerial);
   };
 
-  const exportReport = () => {
-    const markdown = toMarkdownReport(createDeviceReport(snapshot, readiness));
-    if (typeof URL.createObjectURL !== "function") return;
-    const href = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = "opendevice-forge-report.md";
-    anchor.click();
-    URL.revokeObjectURL(href);
+  const openPlugin = (manifest: PluginManifest) => {
+    if (!isPluginRunnable(manifest, runtimes)) return;
+    if (!isPluginEffective(registry, manifest.id)) return;
+    setWorkbenchPluginId(manifest.id);
+    setPage("workbench");
+  };
+
+  const workbench = useMemo(() => {
+    const manifest = BUILTIN_PLUGINS.find((item) => item.id === workbenchPluginId);
+    const entry = manifest?.runtime?.entry;
+    const runtime = entry ? runtimes.get(entry) : undefined;
+    return manifest && runtime ? { manifest, runtime } : null;
+  }, [runtimes, workbenchPluginId]);
+
+  const updatePluginConfiguration = (
+    pluginId: string,
+    configuration: PluginConfiguration,
+  ) => {
+    setConfigurations((current) => ({ ...current, [pluginId]: configuration }));
   };
 
   const content = page === "plugins" ? (
@@ -214,13 +218,28 @@ export function App({ deviceClient }: AppProps) {
       catalog={BUILTIN_PLUGINS}
       registry={registry}
       onAction={handlePluginAction}
-      onEditLayout={() => setPage("layout")}
+      isRunnable={(manifest) => isPluginRunnable(manifest, runtimes)}
+      onOpen={openPlugin}
       onToggleSafeMode={toggleSafeMode}
     />
-  ) : page === "layout" ? (
-    <LayoutEditor snapshot={snapshot} profiles={profiles} registry={registry} onProfilesChange={setProfiles} onBack={() => setPage("plugins")} />
+  ) : page === "workbench" && workbench ? (
+    <PluginWorkbench
+      manifest={workbench.manifest}
+      runtime={workbench.runtime}
+      context={{ sessionSerial: selectedSerial }}
+      configuration={configurations[workbench.manifest.id] ?? workbench.runtime.defaultConfiguration}
+      onConfigurationChange={(configuration) => updatePluginConfiguration(workbench.manifest.id, configuration)}
+      canRun={snapshot.connection === "ready" && selectedSerial !== null}
+      unavailableReason="请先连接一台已授权的 Android 手机"
+      onBack={() => setPage("plugins")}
+    />
   ) : (
-    <DeviceOverview snapshot={snapshot} readiness={readiness} connectionMessage={connectionMessage} onRefresh={refreshDevice} onNavigatePlugins={() => setPage("plugins")} onExportReport={exportReport} />
+    <DeviceOverview
+      snapshot={snapshot}
+      connectionMessage={connectionMessage}
+      onRefresh={refreshDevice}
+      onNavigatePlugins={() => setPage("plugins")}
+    />
   );
 
   return (
@@ -233,7 +252,6 @@ export function App({ deviceClient }: AppProps) {
       selectedSerial={selectedSerial}
       onSelectDevice={selectDevice}
       connectionLabel={connectionMessage}
-      safeMode={registry.safeMode}
     >
       {content}
     </AppShell>
