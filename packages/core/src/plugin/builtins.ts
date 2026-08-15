@@ -82,7 +82,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     ],
   },
   {
-    ...base("dev.opendevice.root-guide", "Root 实验室", "仅展示风险、条件与恢复知识，不执行 Root 或解锁。"),
+    ...base("dev.opendevice.root-guide", "Root 实验室", "仅展示风险与恢复知识，不执行 Root 或解锁。"),
     audience: "advanced",
     risk: "high",
     permissions: [],
@@ -91,4 +91,3 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
     ],
   },
 ];
-
