@@ -5,6 +5,11 @@ target/
 .DS_Store
 playwright-report/
 test-results/
-apps/desktop/src-tauri/target/
 work/references/
 
+# The machine-wide ignore file excludes directories named Desktop. Keep this
+# workspace's lowercase desktop package versioned explicitly.
+!apps/
+!apps/desktop/
+!apps/desktop/**
+apps/desktop/src-tauri/target/

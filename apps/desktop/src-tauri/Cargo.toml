@@ -1,0 +1,19 @@
+[package]
+name = "opendevice-forge"
+version = "0.1.0"
+description = "Plugin-first Android device workbench"
+edition = "2024"
+rust-version = "1.88"
+
+[lib]
+name = "opendevice_forge_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+tauri = { version = "2.11.5", features = [] }
+wait-timeout = "0.2.1"
+
