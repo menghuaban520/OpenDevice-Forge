@@ -40,6 +40,7 @@ export const BUILTIN_PLUGINS: PluginManifest[] = [
   },
   {
     ...base("dev.opendevice.device-inspection", "设备体检", "只读扫描设备状态并生成可解释结果。"),
+    runtime: { kind: "workflow", entry: "builtin:device-inspection" },
     audience: "general",
     risk: "low",
     permissions: ["device.read", "device.report"],

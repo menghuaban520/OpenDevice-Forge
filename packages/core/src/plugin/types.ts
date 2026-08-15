@@ -27,6 +27,13 @@ export type PluginPermission =
   | "network.outbound"
   | "service.local";
 
+export type PluginRuntimeKind = "workflow" | "service";
+
+export interface PluginRuntimeReference {
+  kind: PluginRuntimeKind;
+  entry: string;
+}
+
 export type PluginSource =
   | { kind: "official" }
   | { kind: "community"; catalog: string }
@@ -62,6 +69,7 @@ export interface PluginManifest {
   risk: "low" | "medium" | "high";
   permissions: PluginPermission[];
   contributes: PluginContribution[];
+  runtime?: PluginRuntimeReference;
   protected?: boolean;
 }
 
@@ -78,6 +86,8 @@ export interface ManifestValidationError {
     | "contribution_empty"
     | "contribution_duplicate"
     | "placement_mismatch"
+    | "runtime_invalid"
+    | "runtime_contribution_mismatch"
     | "risk_audience_mismatch";
   message: string;
   path: string;
@@ -156,4 +166,3 @@ export interface LayoutProfile {
   scope: LayoutScope;
   placements: Record<PlacementSlot, PlacementEntry[]>;
 }
-

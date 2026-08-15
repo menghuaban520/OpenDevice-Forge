@@ -3,6 +3,7 @@ export * from "./plugin/manifest";
 export * from "./plugin/registry";
 export * from "./plugin/layout";
 export * from "./plugin/builtins";
+export * from "./plugin/runtime";
 export * from "./device/types";
 export * from "./device/demo";
 export * from "./device/readiness";

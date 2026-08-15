@@ -9,6 +9,7 @@ import type {
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/;
 const PLUGIN_ID = /^(?:[a-z0-9]+[.-])+[a-z0-9-]+$/;
+const RUNTIME_ENTRY = /^[a-z0-9][a-z0-9:._/-]*$/;
 
 const ALLOWED_PERMISSIONS = new Set<PluginPermission>([
   "device.read",
@@ -134,6 +135,27 @@ export const validatePluginManifest = (
     }
   }
 
+  if (manifest.runtime) {
+    if (!RUNTIME_ENTRY.test(manifest.runtime.entry)) {
+      add("runtime_invalid", "runtime.entry", "运行器入口格式无效。");
+    }
+    const contributionTypes = new Set(
+      manifest.contributes.map((contribution) => contribution.type),
+    );
+    const matchesContribution = manifest.runtime.kind === "service"
+      ? contributionTypes.has("service")
+      : ["deviceProbe", "workflow", "overviewSection", "reportSection"].some(
+          (type) => contributionTypes.has(type as ContributionType),
+        );
+    if (!matchesContribution) {
+      add(
+        "runtime_contribution_mismatch",
+        "runtime.kind",
+        "运行器类型与插件贡献点不匹配。",
+      );
+    }
+  }
+
   if (manifest.risk === "high" && manifest.audience !== "advanced") {
     add(
       "risk_audience_mismatch",
@@ -144,4 +166,3 @@ export const validatePluginManifest = (
 
   return { ok: errors.length === 0, errors };
 };
-

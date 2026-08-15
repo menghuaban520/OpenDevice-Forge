@@ -106,5 +106,32 @@ describe("validatePluginManifest", () => {
       expect.arrayContaining(["kernel_incompatible", "risk_audience_mismatch"]),
     );
   });
-});
 
+  it("rejects a service runtime without a service contribution", () => {
+    const result = validatePluginManifest(
+      {
+        ...validManifest,
+        runtime: { kind: "service", entry: "builtin:gateway" },
+      },
+      "0.1.0",
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "runtime_contribution_mismatch" }),
+    );
+  });
+
+  it("rejects an unsafe runtime entry name", () => {
+    const result = validatePluginManifest(
+      {
+        ...validManifest,
+        runtime: { kind: "workflow", entry: "../outside runtime" },
+      },
+      "0.1.0",
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ code: "runtime_invalid" }),
+    );
+  });
+});
