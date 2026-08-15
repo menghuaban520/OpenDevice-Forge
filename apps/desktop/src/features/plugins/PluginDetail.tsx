@@ -1,7 +1,5 @@
-import { useState } from "react";
 import {
   BrainCircuit,
-  ChevronRight,
   CircleAlert,
   CircleCheck,
   Cloud,
@@ -37,10 +35,24 @@ const sourceText = (manifest: PluginManifest) => {
 const riskText = (manifest: PluginManifest) =>
   manifest.risk === "low" ? "低风险" : manifest.risk === "medium" ? "中等风险" : "高风险";
 
+const contributionText: Record<string, string> = {
+  navigation: "可固定为入口",
+  overviewAction: "设备页快捷动作",
+  overviewSection: "设备页信息区",
+  deviceProbe: "只读设备检测",
+  configuration: "提供专属设置",
+  workflow: "可执行工作流",
+  service: "本机服务",
+  companion: "手机端组件",
+  reportSection: "报告内容",
+  contextAction: "设备快捷动作",
+};
+
 export function PluginDetail({ manifest, installed, onAction, onEditLayout }: PluginDetailProps) {
   const Icon = iconFor(manifest.id);
   const isRootGuide = manifest.id === "dev.opendevice.root-guide";
-  const [saved, setSaved] = useState(false);
+  const hasConfiguration = manifest.contributes.some((item) => item.type === "configuration");
+
   return (
     <div className="plugin-detail-grid">
       <section className="plugin-detail-main">
@@ -83,8 +95,8 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
         <dl className="plugin-meta">
           <div><dt>版本</dt><dd>{manifest.version}</dd></div>
           <div><dt>来源</dt><dd>{sourceText(manifest)}</dd></div>
-          <div><dt>执行方式</dt><dd>{manifest.execution === "declarative" ? "声明式清单" : "原生插件"}</dd></div>
-          <div><dt>适用范围</dt><dd>{manifest.audience === "advanced" ? "高级用户" : "所有用户"}</dd></div>
+          <div><dt>运行方式</dt><dd>{manifest.execution === "declarative" ? "受控声明式" : "原生插件"}</dd></div>
+          <div><dt>适用用户</dt><dd>{manifest.audience === "advanced" ? "高级用户" : "所有用户"}</dd></div>
           <div><dt>风险</dt><dd><span className={`risk-dot ${manifest.risk}`} />{riskText(manifest)}</dd></div>
         </dl>
 
@@ -93,22 +105,22 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
         ) : null}
 
         <div className="detail-section">
-          <div className="section-heading"><h3>显示位置</h3><button type="button" onClick={onEditLayout}>编辑全部插件布局</button></div>
+          <div className="section-heading"><h3>这个插件能做什么</h3><button type="button" onClick={onEditLayout}>自定义插件位置</button></div>
           {manifest.contributes.map((contribution) => (
             <div className="contribution-row" key={contribution.id}>
               <CircleCheck />
-              <div><strong>{contribution.label}</strong><span>{contribution.type}</span></div>
-              <span>{contribution.defaultPlacement ?? "由插件决定"}</span>
+              <div><strong>{contribution.label}</strong><span>{contributionText[contribution.type] ?? contribution.type}</span></div>
+              <span>{contribution.defaultPlacement ? "默认显示" : "按需使用"}</span>
             </div>
           ))}
+          {!hasConfiguration ? <p className="permission-note">此插件没有专属设置，启用后即可使用。</p> : null}
         </div>
 
         <div className="detail-section permission-section">
-          <h3>权限</h3>
+          <h3>安装前会请求的权限</h3>
           {manifest.permissions.length === 0 ? <p>无需设备权限</p> : manifest.permissions.map((permission) => (
             <div className="permission-row" key={permission}><Shield /><span>{permission}</span><strong>安装前可见</strong></div>
           ))}
-          <p className="permission-note">布局编辑不会增加插件权限</p>
         </div>
 
         {installed && !manifest.protected ? (
@@ -118,20 +130,6 @@ export function PluginDetail({ manifest, installed, onAction, onEditLayout }: Pl
           </div>
         ) : null}
       </section>
-
-      <aside className="plugin-config-rail">
-        <div className="config-title"><h2>{manifest.name}设置</h2><select aria-label="配置范围"><option>仅此设备</option><option>所有设备</option></select></div>
-        <label>配置预设<select><option>日常使用</option><option>低功耗</option><option>实验模式</option></select></label>
-        <label>服务端口<input type="number" defaultValue={11434} min={1024} max={65535} /></label>
-        <label>访问范围<select><option>仅本机</option><option>仅局域网</option></select></label>
-        <div className="config-toggle"><span>开机自动启动</span><span className="mini-switch" /></div>
-        <div className="config-toggle"><span>启用 API 密钥</span><span className="mini-switch on" /></div>
-        <div className="config-disclosure"><strong>将读取</strong><span>设备型号、内存、存储、温度等</span><ChevronRight /></div>
-        <div className="config-disclosure"><strong>将修改</strong><span>{isRootGuide ? "无；仅显示资料" : "仅保存本机配置"}</span><ChevronRight /></div>
-        <div className="config-disclosure"><strong>回退方式</strong><span>停用插件并恢复上一次配置</span><ChevronRight /></div>
-        <div className="config-actions"><button className="primary-button" type="button" onClick={() => setSaved(true)}>保存设置</button><button type="button" disabled>部署到手机</button></div>
-        <p className="config-hint">{saved ? "设置已保存到本机" : "需要连接真机，且本里程碑不会安装手机端组件"}</p>
-      </aside>
     </div>
   );
 }

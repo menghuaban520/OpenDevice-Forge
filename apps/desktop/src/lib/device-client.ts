@@ -22,15 +22,22 @@ export interface DeviceInspection {
   rootSignals: string[];
 }
 
+export interface UsbDeviceHint {
+  manufacturer: string | null;
+  product: string | null;
+}
+
 export interface DeviceClient {
   probeAdb(): Promise<AdbProbeResult>;
   listDevices(): Promise<AdbDeviceSummary[]>;
+  probeUsbDevice?(): Promise<UsbDeviceHint | null>;
   inspectDevice(sessionSerial: string): Promise<DeviceInspection>;
 }
 
 const browserClient: DeviceClient = {
   probeAdb: async () => ({ available: false, source: null }),
   listDevices: async () => [],
+  probeUsbDevice: async () => null,
   inspectDevice: async () => {
     throw new Error("not_connected");
   },
@@ -49,10 +56,13 @@ export const createDeviceClient = (): DeviceClient => {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<AdbDeviceSummary[]>("list_devices");
     },
+    probeUsbDevice: async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      return invoke<UsbDeviceHint | null>("probe_usb_device");
+    },
     inspectDevice: async (sessionSerial) => {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<DeviceInspection>("inspect_device", { sessionSerial });
     },
   };
 };
-

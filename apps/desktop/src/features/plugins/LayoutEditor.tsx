@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  BrainCircuit,
   Cloud,
   FileText,
   GripVertical,
@@ -15,12 +14,15 @@ import {
   setPlacement,
   movePlacement,
   visiblePlugins,
+  type DeviceSnapshot,
   type LayoutProfile,
   type PlacementSlot,
   type PluginRegistryState,
 } from "@opendevice/core";
+import { deviceDisplayName } from "../../components/AppShell";
 
 interface LayoutEditorProps {
+  snapshot: DeviceSnapshot;
   profiles: LayoutProfile[];
   registry: PluginRegistryState;
   onProfilesChange: (profiles: LayoutProfile[]) => void;
@@ -36,7 +38,7 @@ const placementOptions: Array<{ slot: PlacementSlot; label: string; detail: stri
   { slot: "context", label: "右键快捷菜单", detail: "在设备列表右键菜单中显示", icon: MousePointer2 },
 ];
 
-export function LayoutEditor({ profiles, registry, onProfilesChange, onBack }: LayoutEditorProps) {
+export function LayoutEditor({ snapshot, profiles, registry, onProfilesChange, onBack }: LayoutEditorProps) {
   const [draftProfiles, setDraftProfiles] = useState(profiles);
   const [activeId, setActiveId] = useState("default");
   const [dirty, setDirty] = useState(0);
@@ -46,6 +48,8 @@ export function LayoutEditor({ profiles, registry, onProfilesChange, onBack }: L
   const enabled = Object.values(registry.plugins).filter((plugin) => plugin.enabled && !plugin.manifest.protected);
   const sidebarIds = active ? visiblePlugins(active, "sidebar") : [];
   const profileOptions = useMemo(() => draftProfiles.map((profile) => ({ id: profile.id, name: profile.name })), [draftProfiles]);
+  const displayName = deviceDisplayName(snapshot);
+  const productCode = snapshot.productName.value ?? (snapshot.connection === "ready" ? "Android 设备" : "等待连接");
 
   if (!active || !ai) return null;
 
@@ -76,10 +80,10 @@ export function LayoutEditor({ profiles, registry, onProfilesChange, onBack }: L
         <section className="layout-preview-column">
           <h3>当前设备侧边栏</h3>
           <div className="rail-preview">
-            <h4>HUAWEI nova 7 SE 5G 乐活版</h4><p>CDL-AN50</p><small>● 演示视图 · 未连接真机</small>
+            <h4>{displayName}</h4><p>{productCode}</p><small>● {snapshot.connection === "ready" ? "真机已连接" : "尚未连接设备"}</small>
             <div className="preview-divider" /><strong>核心（不可移除）</strong>
-            <div className="preview-core"><Home />设备总览 <span>▣</span></div>
-            <div className="preview-core"><span aria-hidden="true">✚</span><span>插件市场</span><span>▣</span></div>
+            <div className="preview-core"><Home />设备 <span>▣</span></div>
+            <div className="preview-core"><span aria-hidden="true">✚</span><span>插件</span><span>▣</span></div>
             <div className="preview-divider" /><strong>已启用插件</strong>
             {enabled.map((plugin) => (
               <div key={plugin.manifest.id} className={plugin.manifest.id === ai.manifest.id ? "preview-plugin selected" : "preview-plugin"}>
@@ -92,7 +96,7 @@ export function LayoutEditor({ profiles, registry, onProfilesChange, onBack }: L
         <section className="placement-editor">
           <div className="layout-selectors">
             <label>布局方案<select aria-label="布局方案" value={activeId} onChange={(event) => setActiveId(event.target.value)}>{profileOptions.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>
-            <span>当前设备：nova 7 SE 乐活版</span>
+            <span>当前设备：{displayName}</span>
           </div>
           <h3>AI 节点可以出现的位置</h3>
           {placementOptions.map(({ slot, label, detail, icon: Icon }) => {
@@ -113,14 +117,6 @@ export function LayoutEditor({ profiles, registry, onProfilesChange, onBack }: L
           <p className="permission-note">布局编辑不会增加插件权限</p>
         </section>
 
-        <aside className="layout-properties">
-          <div className="selected-plugin-card"><BrainCircuit /><div><h3>AI 节点</h3><p className="state-enabled">已启用</p></div></div>
-          <dl><div><dt>来源</dt><dd>官方目录</dd></div><div><dt>配置范围</dt><dd>{active.scope.kind === "all" ? "所有设备" : active.scope.kind === "current" ? "当前设备" : "命名设备"}</dd></div></dl>
-          <label>页面名称<input defaultValue="AI 节点" /></label>
-          <label>打开方式<select><option>在主工作区打开</option><option>独立窗口</option></select></label>
-          <label>启动行为<select><option>记住上次页面</option><option>每次打开总览</option></select></label>
-          <div className="property-note"><Info />布局编辑只改变入口与顺序，不会新增设备权限。</div>
-        </aside>
       </div>
 
       <div className="layout-savebar"><span>{notice || (dirty > 0 ? `未保存的更改 ${dirty} 项` : "布局与已保存版本一致")}</span><button type="button" onClick={onBack}>取消</button><button className="primary-button" type="button" onClick={() => { onProfilesChange(draftProfiles); setDirty(0); setNotice("布局已保存到本机"); }}><Save />保存布局</button></div>
@@ -148,7 +144,7 @@ export function createAcceptedLayoutProfiles(): LayoutProfile[] {
   if (aiOverview) aiOverview.visible = false;
   return [
     { id: "default", name: "默认布局", scope: { kind: "all" }, placements: clone() },
-    { id: "daily", name: "日常使用", scope: { kind: "named", deviceIds: ["demo-nova7"] }, placements: daily },
+    { id: "daily", name: "日常使用", scope: { kind: "all" }, placements: daily },
     { id: "current", name: "仅当前设备", scope: { kind: "current" }, placements: clone() },
   ];
 }

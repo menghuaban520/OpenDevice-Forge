@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Search,
   Shield,
+  ShieldCheck,
   Stethoscope,
 } from "lucide-react";
 import type {
@@ -22,6 +23,7 @@ interface PluginMarketProps {
   registry: PluginRegistryState;
   onAction: (action: PluginRegistryAction) => void;
   onEditLayout: () => void;
+  onToggleSafeMode: () => void;
 }
 
 const iconFor = (id: string) => {
@@ -35,7 +37,7 @@ const iconFor = (id: string) => {
 const listSource = (manifest: PluginManifest) =>
   manifest.source.kind === "official" ? "官方" : manifest.source.kind === "github" ? "GitHub" : manifest.source.kind === "community" ? "社区" : "本地";
 
-export function PluginMarket({ catalog, registry, onAction, onEditLayout }: PluginMarketProps) {
+export function PluginMarket({ catalog, registry, onAction, onEditLayout, onToggleSafeMode }: PluginMarketProps) {
   const visibleCatalog = catalog.filter((manifest) => !manifest.protected);
   const [selectedId, setSelectedId] = useState(
     visibleCatalog.find((manifest) => manifest.id.includes("ai-readiness"))?.id ?? visibleCatalog[0]?.id ?? "",
@@ -62,6 +64,7 @@ export function PluginMarket({ catalog, registry, onAction, onEditLayout }: Plug
       <div className="page-toolbar market-toolbar">
         <div className="breadcrumb"><button type="button" aria-label="后退">‹</button><button type="button" aria-label="前进">›</button><span>插件市场</span><ChevronRight size={14} /><strong>{selected.name}</strong></div>
         <label className="search-box wide"><Search size={17} /><span className="sr-only">搜索插件</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索插件或 GitHub 仓库" /></label>
+        <button type="button" className="market-recovery-button" onClick={onToggleSafeMode}><ShieldCheck />{registry.safeMode ? "退出安全模式" : "插件恢复"}</button>
         <button type="button" className="icon-button" aria-label="刷新目录"><RefreshCw /></button>
         <button type="button" className="icon-button" aria-label="插件帮助"><HelpCircle /></button>
       </div>

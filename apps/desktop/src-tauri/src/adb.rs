@@ -125,23 +125,81 @@ fn executable_name() -> &'static str {
     if cfg!(windows) { "adb.exe" } else { "adb" }
 }
 
-fn locate_adb(resource_dir: Option<&Path>) -> Result<(PathBuf, &'static str), AdbError> {
+fn candidate_paths(
+    resource_dir: Option<&Path>,
+    path_env: Option<&str>,
+    sdk_roots: impl IntoIterator<Item = PathBuf>,
+    home_dir: Option<&Path>,
+) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
     if let Some(resource_dir) = resource_dir {
-        let bundled = resource_dir
-            .join("resources")
-            .join("platform-tools")
-            .join(executable_name());
-        if bundled.is_file() {
-            return Ok((bundled, "bundled"));
-        }
+        candidates.push(
+            resource_dir
+                .join("resources")
+                .join("platform-tools")
+                .join(executable_name()),
+        );
     }
 
-    if let Some(path) = env::var_os("PATH") {
-        for directory in env::split_paths(&path) {
-            let candidate = directory.join(executable_name());
-            if candidate.is_file() {
-                return Ok((candidate, "path"));
-            }
+    for sdk_root in sdk_roots {
+        candidates.push(sdk_root.join("platform-tools").join(executable_name()));
+    }
+
+    if let Some(path) = path_env {
+        candidates
+            .extend(env::split_paths(path).map(|directory| directory.join(executable_name())));
+    }
+
+    if let Some(home) = home_dir {
+        #[cfg(target_os = "macos")]
+        candidates.push(home.join("Library/Android/sdk/platform-tools/adb"));
+
+        #[cfg(target_os = "linux")]
+        {
+            candidates.push(home.join("Android/Sdk/platform-tools/adb"));
+            candidates.push(home.join("Android/sdk/platform-tools/adb"));
+        }
+
+        #[cfg(windows)]
+        candidates.push(home.join("AppData/Local/Android/Sdk/platform-tools/adb.exe"));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        candidates.push(PathBuf::from("/opt/homebrew/bin/adb"));
+        candidates.push(PathBuf::from("/usr/local/bin/adb"));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        candidates.push(PathBuf::from("/usr/local/bin/adb"));
+        candidates.push(PathBuf::from("/usr/bin/adb"));
+    }
+
+    candidates.dedup();
+    candidates
+}
+
+fn locate_adb(resource_dir: Option<&Path>) -> Result<(PathBuf, &'static str), AdbError> {
+    let sdk_roots = ["ANDROID_SDK_ROOT", "ANDROID_HOME"]
+        .into_iter()
+        .filter_map(env::var_os)
+        .map(PathBuf::from);
+    let path_env = env::var("PATH").ok();
+    let home = env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
+    for candidate in candidate_paths(
+        resource_dir,
+        path_env.as_deref(),
+        sdk_roots,
+        home.as_deref(),
+    ) {
+        if candidate.is_file() {
+            let source = resource_dir
+                .is_some_and(|directory| candidate.starts_with(directory))
+                .then_some("bundled")
+                .unwrap_or("path");
+            return Ok((candidate, source));
         }
     }
     Err(AdbError::Missing)
@@ -236,8 +294,34 @@ pub fn located_adb(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AdbCommand, DeviceProperty, parse_devices_output};
+    use super::{AdbCommand, DeviceProperty, candidate_paths, parse_devices_output};
     use crate::device::TransportState;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn searches_sdk_environment_and_standard_desktop_locations() {
+        let candidates = candidate_paths(
+            Some(Path::new(
+                "/Applications/OpenDevice Forge.app/Contents/Resources",
+            )),
+            Some("/custom/bin:/usr/bin"),
+            [PathBuf::from("/sdk-from-env")],
+            Some(Path::new("/Users/example")),
+        );
+
+        assert_eq!(
+            candidates[0],
+            PathBuf::from(
+                "/Applications/OpenDevice Forge.app/Contents/Resources/resources/platform-tools/adb"
+            ),
+        );
+        assert!(candidates.contains(&PathBuf::from("/sdk-from-env/platform-tools/adb")));
+        assert!(candidates.contains(&PathBuf::from("/custom/bin/adb")));
+        assert!(candidates.contains(&PathBuf::from(
+            "/Users/example/Library/Android/sdk/platform-tools/adb"
+        )));
+        assert!(candidates.contains(&PathBuf::from("/opt/homebrew/bin/adb")));
+    }
 
     #[test]
     fn parses_ready_unauthorized_offline_and_multiple_devices() {

@@ -1,41 +1,53 @@
 import type { ReactNode } from "react";
-import {
-  Box,
-  ClipboardList,
-  Home,
-  LockKeyhole,
-  PackagePlus,
-  PlugZap,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-} from "lucide-react";
-import { isPluginEffective, type PluginRegistryState } from "@opendevice/core";
+import { Home, LockKeyhole, PlugZap, ShieldCheck } from "lucide-react";
+import type { DeviceSnapshot } from "@opendevice/core";
+import type { AdbDeviceSummary } from "../lib/device-client";
 
-export type AppPage = "overview" | "plugins" | "layout" | "history" | "settings";
+export type AppPage = "overview" | "plugins" | "layout";
 
 interface AppShellProps {
   children: ReactNode;
   page: AppPage;
   onNavigate: (page: AppPage) => void;
   onConnect: () => void;
-  registry: PluginRegistryState;
+  snapshot: DeviceSnapshot;
+  devices: AdbDeviceSummary[];
+  selectedSerial: string | null;
+  onSelectDevice: (sessionSerial: string) => void;
   connectionLabel: string;
-  onToggleSafeMode: () => void;
+  safeMode: boolean;
 }
 
-const navItems: Array<{ page: AppPage; label: string; icon: typeof Home }> = [
-  { page: "overview", label: "设备总览", icon: Home },
-  { page: "plugins", label: "插件市场", icon: PlugZap },
-  { page: "history", label: "任务记录", icon: ClipboardList },
-  { page: "settings", label: "设置", icon: Settings },
+const navItems: Array<{ page: "overview" | "plugins"; label: string; icon: typeof Home }> = [
+  { page: "overview", label: "设备", icon: Home },
+  { page: "plugins", label: "插件", icon: PlugZap },
 ];
 
-const enabledNames: Record<string, string> = {
-  "dev.opendevice.device-inspection": "设备体检",
-  "dev.opendevice.ai-readiness": "AI 节点",
-  "dev.opendevice.remote-gateway": "远程网关",
-  "dev.opendevice.report-export": "报告导出",
+const clean = (value: string | null) => value?.trim() || null;
+
+export const deviceDisplayName = (snapshot: DeviceSnapshot): string => {
+  const manufacturer = clean(snapshot.manufacturer.value);
+  const model = clean(snapshot.model.value) ?? clean(snapshot.productName.value);
+  if (!model) return "尚未连接设备";
+  if (!manufacturer || model.toLocaleLowerCase().startsWith(manufacturer.toLocaleLowerCase())) return model;
+  return `${manufacturer} ${model}`;
+};
+
+const secondaryIdentity = (snapshot: DeviceSnapshot): string => {
+  const product = clean(snapshot.productName.value);
+  const model = clean(snapshot.model.value);
+  return product && product.toLocaleLowerCase() !== model?.toLocaleLowerCase()
+    ? product
+    : snapshot.connection === "ready"
+      ? "Android 设备"
+      : model ? "USB 设备 · 等待 ADB" : "等待识别 Android 设备";
+};
+
+const optionLabel = (device: AdbDeviceSummary): string => {
+  const identity = clean(device.model) ?? clean(device.product) ?? "Android 设备";
+  if (device.transport === "unauthorized") return `${identity}（等待授权）`;
+  if (device.transport === "offline") return `${identity}（离线）`;
+  return identity;
 };
 
 export function AppShell({
@@ -43,13 +55,14 @@ export function AppShell({
   page,
   onNavigate,
   onConnect,
-  registry,
+  snapshot,
+  devices,
+  selectedSerial,
+  onSelectDevice,
   connectionLabel,
-  onToggleSafeMode,
+  safeMode,
 }: AppShellProps) {
-  const enabledPlugins = Object.values(registry.plugins).filter(
-    (plugin) => isPluginEffective(registry, plugin.manifest.id) && !plugin.manifest.protected && enabledNames[plugin.manifest.id],
-  );
+  const displayName = deviceDisplayName(snapshot);
 
   return (
     <div className="app-window">
@@ -65,13 +78,29 @@ export function AppShell({
 
       <aside className="device-rail">
         <div className="device-portrait-wrap">
-          <img className="device-portrait" src="/assets/device-neutral.png" alt="无品牌旧安卓手机演示渲染" />
+          <img className="device-portrait" src="/assets/device-neutral.png" alt="Android 手机轮廓" />
         </div>
-        <h1>HUAWEI nova 7 SE 5G 乐活版</h1>
-        <p className="device-model">CDL-AN50</p>
-        <p className="demo-state"><span />演示视图 · 未连接真机</p>
+        <h1>{displayName}</h1>
+        <p className="device-model">{secondaryIdentity(snapshot)}</p>
+        <p className={`demo-state connection-${snapshot.connection}`}><span />{connectionLabel}</p>
+
+        {devices.length > 1 ? (
+          <label className="device-selector">
+            <span>当前设备</span>
+            <select
+              aria-label="选择设备"
+              value={selectedSerial ?? ""}
+              onChange={(event) => onSelectDevice(event.target.value)}
+            >
+              {devices.map((device) => (
+                <option key={device.sessionSerial} value={device.sessionSerial}>{optionLabel(device)}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <button className="connect-button" type="button" onClick={onConnect}>
-          <PlugZap size={17} />连接真机
+          <PlugZap size={17} />{snapshot.connection === "ready" ? "重新检测" : "检测 Android 设备"}
         </button>
 
         <div className="rail-divider" />
@@ -89,29 +118,16 @@ export function AppShell({
               >
                 <Icon size={19} />
                 <span>{item.label}</span>
-                {item.page === "overview" || item.page === "plugins" ? <LockKeyhole size={13} /> : null}
+                <LockKeyhole size={13} />
               </button>
             );
           })}
         </nav>
 
-        <div className="rail-divider" />
-        <div className="rail-heading-row">
-          <p className="rail-group-title">已启用插件</p>
-          <button type="button" onClick={() => onNavigate("layout")}>编辑</button>
+        <div className="rail-principle">
+          <ShieldCheck size={17} />
+          <div><strong>默认只读</strong><span>不刷机、不解锁、不修改手机</span></div>
         </div>
-        <div className="enabled-plugin-list">
-          {enabledPlugins.map((plugin) => (
-            <div key={plugin.manifest.id} className="enabled-plugin-row">
-              <Box size={17} />
-              <span>{enabledNames[plugin.manifest.id]}</span>
-              <span className="mini-switch on" aria-hidden="true" />
-            </div>
-          ))}
-        </div>
-        <button className="add-source" type="button" onClick={() => onNavigate("plugins")}>
-          <PackagePlus size={19} />添加插件来源
-        </button>
       </aside>
 
       <main className="workspace">{children}</main>
@@ -119,11 +135,7 @@ export function AppShell({
       <footer className="safety-strip">
         <div><ShieldCheck size={16} /><strong>只读模式</strong></div>
         <span title={connectionLabel}>当前没有对手机执行任何修改</span>
-        {registry.safeMode ? <span className="safe-mode-note">安全模式已开启，仅保留内核插件</span> : null}
-        <button type="button" onClick={onToggleSafeMode}>
-          <SlidersHorizontal size={15} />
-          {registry.safeMode ? "退出安全模式" : "进入安全模式"}
-        </button>
+        {safeMode ? <span className="safe-mode-note">插件安全模式已开启</span> : null}
       </footer>
     </div>
   );

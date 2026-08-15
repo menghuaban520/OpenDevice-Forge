@@ -7,8 +7,8 @@ describe("Layout Editor", () => {
   it("edits visibility within a named profile without changing permissions", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "插件市场" }));
-    await user.click(screen.getByRole("button", { name: "编辑全部插件布局" }));
+    await user.click(screen.getByRole("button", { name: "插件" }));
+    await user.click(screen.getByRole("button", { name: "自定义插件位置" }));
 
     expect(screen.getByRole("heading", { name: "界面与插件布局" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("布局方案"), "daily");
@@ -23,8 +23,8 @@ describe("Layout Editor", () => {
   it("restores the accepted default layout", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "插件市场" }));
-    await user.click(screen.getByRole("button", { name: "编辑全部插件布局" }));
+    await user.click(screen.getByRole("button", { name: "插件" }));
+    await user.click(screen.getByRole("button", { name: "自定义插件位置" }));
     await user.click(screen.getByRole("button", { name: "恢复默认" }));
     expect(screen.getByText("已恢复默认布局")).toBeInTheDocument();
   });

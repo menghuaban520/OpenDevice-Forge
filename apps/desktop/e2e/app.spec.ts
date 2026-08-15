@@ -8,13 +8,14 @@ test.beforeAll(async () => {
   await mkdir(screenshotDirectory, { recursive: true });
 });
 
-test("plugin-first desktop workflow and accepted surfaces", async ({ page }) => {
+test("device-first desktop workflow and accepted surfaces", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("HUAWEI nova 7 SE 5G 乐活版")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "尚未连接设备" })).toBeVisible();
+  await expect(page.getByText("缺少 Android 设备桥接")).toBeVisible();
   await expect(page.getByText("当前没有对手机执行任何修改")).toBeVisible();
   await page.screenshot({ path: resolve(screenshotDirectory, "desktop-overview.png") });
 
-  await page.getByRole("button", { name: "插件市场", exact: true }).click();
+  await page.getByRole("button", { name: "插件", exact: true }).click();
   await expect(page.getByText("OpenDevice Forge 官方目录")).toBeVisible();
   await page.screenshot({ path: resolve(screenshotDirectory, "plugin-market.png") });
 
@@ -24,7 +25,7 @@ test("plugin-first desktop workflow and accepted surfaces", async ({ page }) => 
   await expect(aiToggle).not.toBeChecked();
   await aiToggle.click();
 
-  await page.getByRole("button", { name: "编辑全部插件布局" }).click();
+  await page.getByRole("button", { name: "自定义插件位置" }).click();
   await expect(page.getByRole("heading", { name: "界面与插件布局" })).toBeVisible();
   await page.screenshot({ path: resolve(screenshotDirectory, "layout-editor.png") });
 

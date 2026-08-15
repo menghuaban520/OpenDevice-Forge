@@ -39,17 +39,18 @@ fn parse_nonempty(value: String) -> Option<String> {
 }
 
 pub fn parse_memory_total(output: &str) -> Option<u64> {
-    let line = output.lines().find(|line| line.trim_start().starts_with("MemTotal:"))?;
+    let line = output
+        .lines()
+        .find(|line| line.trim_start().starts_with("MemTotal:"))?;
     let kibibytes = line.split_whitespace().nth(1)?.parse::<u64>().ok()?;
     kibibytes.checked_mul(1024)
 }
 
 pub fn parse_storage_available(output: &str) -> Option<u64> {
-    let line = output
-        .lines()
-        .find(|line| line.split_whitespace().last() == Some("/data"))?;
-    let kibibytes = line.split_whitespace().nth(3)?.parse::<u64>().ok()?;
-    kibibytes.checked_mul(1024)
+    output.lines().find_map(|line| {
+        let kibibytes = line.split_whitespace().nth(3)?.parse::<u64>().ok()?;
+        kibibytes.checked_mul(1024)
+    })
 }
 
 pub fn parse_battery_level(output: &str) -> Option<u8> {
@@ -63,10 +64,7 @@ pub fn parse_battery_level(output: &str) -> Option<u8> {
     })
 }
 
-fn optional_output(
-    adb_path: &std::path::Path,
-    command: AdbCommand,
-) -> Option<String> {
+fn optional_output(adb_path: &std::path::Path, command: AdbCommand) -> Option<String> {
     run_adb(adb_path, &command).ok()
 }
 
@@ -156,8 +154,17 @@ mod tests {
     }
 
     #[test]
+    fn parses_storage_when_android_reports_a_non_data_mountpoint() {
+        let output = "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/block/sdd72 114612224 29790600 84821624 26% /cust/global/carrier/network\n";
+        assert_eq!(parse_storage_available(output), Some(86_857_342_976));
+    }
+
+    #[test]
     fn parses_battery_level_without_accepting_unrelated_numbers() {
-        assert_eq!(parse_battery_level("AC powered: false\n  level: 78\n"), Some(78));
+        assert_eq!(
+            parse_battery_level("AC powered: false\n  level: 78\n"),
+            Some(78)
+        );
         assert_eq!(parse_battery_level("temperature: 310"), None);
     }
 }

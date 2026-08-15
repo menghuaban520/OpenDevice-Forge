@@ -1,12 +1,15 @@
-# OpenDevice Forge — Starter Design Contract
+# OpenDevice Forge — Device-first Design Contract
 
-> Status: visual direction is under review. This file records the active reference boundaries and anti-patterns only; implementation tokens will be locked after the device overview is accepted.
+> Status: v2 direction accepted for implementation after the first prototype exposed two product defects: a hard-coded reference phone and configuration that was not backed by plugin capabilities.
 
 ## Product surface
 
 - Cross-platform Windows/macOS desktop device utility, not a browser dashboard or marketing site.
-- Primary user task: select one Android phone, understand its real condition, then choose an inspection, plugin, or remote-service action.
-- Current reference device: HUAWEI nova 7 SE 5G 乐活版 (`CDL-AN50`). All runtime facts must still come from the connected device.
+- Primary user task: connect or select an Android phone, confirm that the app identified the correct device, understand its real condition, then choose an inspection or plugin action.
+- No phone model is a runtime default. The shell, breadcrumb, report, and compatibility view all derive their identity from the selected device. A missing field remains unknown and never falls back to another manufacturer's reference device.
+- Android compatibility is property-driven rather than model-list-driven: use standard manufacturer, model, product, Android version, ABI, memory, storage, and battery facts. Manufacturer-specific extensions may add facts later, but cannot block basic identification.
+- Multiple connected devices are first-class. Selection uses an ephemeral session identifier that is never displayed, exported, or persisted.
+- Apple devices require a separate device provider. Until that provider exists, the UI must explicitly say Android instead of implying that ADB can identify an iPhone.
 
 ## Product architecture: microkernel plus removable plugins
 
@@ -17,7 +20,7 @@ The kernel owns only:
 - device discovery and connection selection;
 - plugin install, enable, disable, update, uninstall, rollback, and safe mode;
 - permission prompts, signature/source verification, task audit, and crash isolation;
-- stable settings, recovery, and plugin-market entry points;
+- recovery and plugin-market entry points;
 - versioned contribution APIs and the UI slots plugins may fill.
 
 Everything else is a plugin, including device inspection, report extensions, AI node deployment, remote gateway, vision bridge, network tools, Root Lab, and future community workflows.
@@ -44,8 +47,8 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 - `enable/disable` controls whether it can run without deleting configuration.
 - `deploy/remove from device` manages the optional phone-side component separately.
 - `uninstall` removes the desktop plugin after showing affected devices and services.
-- Settings may apply to `this device`, `all devices`, or a named profile.
-- Sidebar placement, overview visibility, shortcut visibility, and ordering are user-configurable.
+- Configuration exists only when a plugin declares a real `configuration` contribution with a schema implemented by the host. The shell never invents ports, API keys, startup switches, deployment, or device scope for a plugin.
+- Sidebar placement and ordering remain customizable through an advanced market action, not a permanent control in the device rail.
 - A failed plugin launch opens the app in safe mode with third-party plugins disabled; the market and recovery settings always remain reachable.
 
 ### Market sources
@@ -66,15 +69,17 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 
 ## Active structural rules
 
-1. The phone is the visual anchor. A device render, exact connected name, model code, connection state, battery, and navigation occupy one persistent device rail.
+1. The phone is the visual anchor. The persistent rail shows the selected device's measured identity and connection state; before connection it shows a neutral Android device with no fictional brand, model, battery, or specifications.
 2. The main workspace is an open native desktop surface, not a grid of equal rounded cards.
-3. The overview follows this reading order: quick actions -> device information -> storage/battery -> suitability and problems -> recent operations.
-4. The stable sidebar contains only kernel destinations. Enabled plugins contribute reorderable destinations under an “已启用插件” group; users can pin, hide, reorder, enable, or disable them.
-5. Plugins and remote services have their own navigation destinations. The overview shows only contextual shortcuts and concise status, never a second full dashboard inside the dashboard.
+3. The overview follows this reading order: identity/connection -> essential facts -> the next useful action -> concise compatibility findings.
+4. The stable sidebar contains only `设备` and `插件`. Task audit, recovery, sources, and layout customization are contextual or advanced actions inside the plugin surface.
+5. Enabled plugins do not automatically become sidebar destinations. A plugin may contribute navigation only after the user pins it; the default rail stays quiet.
 6. Use disclosure (“显示全部”, “更多”) for deep facts instead of showing eight KPI tiles.
 7. Warnings use one small symbol plus plain text. Avoid status pills, colored backgrounds, and repeated red/amber/green labels.
 8. Tables are reserved for true collections: plugin list, service list, task history, and reports. Device facts use aligned definition rows.
 9. One primary action per screen. Secondary actions use quiet text or toolbar controls.
+10. Disconnected, ADB-missing, unauthorized, offline, single-device, and multi-device states are designed states, not variations of a demo phone.
+11. Show settings on demand and in context. No setting is displayed before the corresponding capability exists and can be applied or rolled back.
 
 ## Visual rules to validate in the next concept
 
@@ -89,4 +94,17 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 
 - Rejected v1: oversized beginner landing page with too little real device information.
 - Rejected v2 direction: symmetrical admin dashboard, equal bordered cards, KPI strip, badge-heavy state language, and every feature visible at once. It was clearer but still looked AI-generated and did not carry iMazing's native device-manager character.
+- Rejected prototype behavior: using the nova 7 reference snapshot as the base of a live inspection. A partially read Pixel, Samsung, Xiaomi, OPPO, vivo, Huawei, Honor, or other Android device must never inherit Huawei facts.
+- Rejected prototype behavior: the same model preset, port, access range, startup, API-key, and deploy controls on every plugin. Those controls implied implementation that did not exist.
 - Do not fix these problems by changing color, gradients, shadows, or radius alone; the hierarchy and container model must change.
+
+## Verified project rule — device facts before plugin configuration
+
+- Status: verified.
+- Signal: the prototype displayed a Huawei reference device when ADB was missing and rendered identical service settings for unrelated plugins.
+- Method: start from an unknown snapshot, populate only facts reported by the selected Android device, discard late results from a previously selected device, and render configuration only for an implemented `configuration` contribution.
+- Evidence: desktop unit tests cover ADB-missing, unauthorized, Google, partial Samsung, multiple devices, and rapid selection; Rust tests cover standard ADB lookup paths; Playwright and native-app screenshots cover the disconnected overview, plugin detail, and layout editor.
+- Applies to: Android device identity, reports, compatibility assessment, device selection, plugin details, and advanced layout previews.
+- Does not apply to: iPhone/iPad discovery, vendor-only diagnostic protocols, automatic Platform-Tools installation, or claims that a specific model supports Root or a local model.
+- Revalidate when: adding an Apple provider, bundling or replacing ADB, introducing a plugin configuration schema, or displaying manufacturer-specific facts.
+- Verified at: 2026-08-16.
