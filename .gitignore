@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+target/
+.DS_Store
+playwright-report/
+test-results/
+apps/desktop/src-tauri/target/
+work/references/
+
