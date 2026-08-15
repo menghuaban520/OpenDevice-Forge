@@ -2,7 +2,11 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import type { DeviceClient } from "./lib/device-client";
+import {
+  ALL_INSPECTION_GROUPS,
+  type DeviceClient,
+  type InspectionSelection,
+} from "./lib/device-client";
 
 const missingAdbClient: DeviceClient = {
   probeAdb: async () => ({ available: false, source: null }),
@@ -96,6 +100,26 @@ describe("App", () => {
     expect(screen.queryByText(/nova 7|CDL-AN50|HUAWEI/i)).not.toBeInTheDocument();
   });
 
+  it("asks the kernel device overview to read every inspection group", async () => {
+    const selections: InspectionSelection[] = [];
+    const client: DeviceClient = {
+      ...pixelClient,
+      inspectDevice: async (_sessionSerial, selection = ALL_INSPECTION_GROUPS) => {
+        selections.push(selection);
+        return pixelClient.inspectDevice("pixel-session");
+      },
+    };
+
+    render(<App deviceClient={client} />);
+    await waitFor(() => expect(screen.getAllByText("Google Pixel 9 Pro").length).toBeGreaterThan(0));
+    expect(selections).toEqual([{
+      identity: true,
+      performance: true,
+      power: true,
+      system: true,
+    }]);
+  });
+
   it("does not fill missing Samsung fields from the Huawei reference phone", async () => {
     render(<App deviceClient={partialSamsungClient} />);
     await waitFor(() => expect(screen.getAllByText("samsung SM-S918B").length).toBeGreaterThan(0));
@@ -129,7 +153,12 @@ describe("App", () => {
     await waitFor(() => expect(screen.getAllByText("Google Pixel 9 Pro").length).toBeGreaterThan(0));
     await user.selectOptions(screen.getByRole("combobox", { name: "选择设备" }), "second-session");
     await waitFor(() => expect(screen.getAllByText("OPPO Find X8").length).toBeGreaterThan(0));
-    expect(inspectDevice).toHaveBeenLastCalledWith("second-session");
+    expect(inspectDevice).toHaveBeenLastCalledWith("second-session", {
+      identity: true,
+      performance: true,
+      power: true,
+      system: true,
+    });
   });
 
   it("keeps the latest phone selected when an earlier inspection finishes late", async () => {

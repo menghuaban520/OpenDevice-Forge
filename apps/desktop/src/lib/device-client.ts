@@ -22,6 +22,20 @@ export interface DeviceInspection {
   rootSignals: string[];
 }
 
+export interface InspectionSelection {
+  identity: boolean;
+  performance: boolean;
+  power: boolean;
+  system: boolean;
+}
+
+export const ALL_INSPECTION_GROUPS: InspectionSelection = {
+  identity: true,
+  performance: true,
+  power: true,
+  system: true,
+};
+
 export interface UsbDeviceHint {
   manufacturer: string | null;
   product: string | null;
@@ -31,7 +45,10 @@ export interface DeviceClient {
   probeAdb(): Promise<AdbProbeResult>;
   listDevices(): Promise<AdbDeviceSummary[]>;
   probeUsbDevice?(): Promise<UsbDeviceHint | null>;
-  inspectDevice(sessionSerial: string): Promise<DeviceInspection>;
+  inspectDevice(
+    sessionSerial: string,
+    selection?: InspectionSelection,
+  ): Promise<DeviceInspection>;
 }
 
 const browserClient: DeviceClient = {
@@ -60,9 +77,12 @@ export const createDeviceClient = (): DeviceClient => {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<UsbDeviceHint | null>("probe_usb_device");
     },
-    inspectDevice: async (sessionSerial) => {
+    inspectDevice: async (sessionSerial, selection) => {
       const { invoke } = await import("@tauri-apps/api/core");
-      return invoke<DeviceInspection>("inspect_device", { sessionSerial });
+      return invoke<DeviceInspection>("inspect_device", {
+        sessionSerial,
+        selection: selection ?? ALL_INSPECTION_GROUPS,
+      });
     },
   };
 };

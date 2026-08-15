@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::adb::{AdbCommand, DeviceProperty, located_adb, run_adb};
 
@@ -19,7 +19,7 @@ pub struct AdbDevice {
     pub product: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InspectionSnapshot {
     pub manufacturer: Option<String>,
@@ -31,6 +31,63 @@ pub struct InspectionSnapshot {
     pub storage_available_bytes: Option<u64>,
     pub battery_percent: Option<u8>,
     pub root_signals: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InspectionSelection {
+    pub identity: bool,
+    pub performance: bool,
+    pub power: bool,
+    pub system: bool,
+}
+
+impl Default for InspectionSelection {
+    fn default() -> Self {
+        Self {
+            identity: true,
+            performance: true,
+            power: true,
+            system: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InspectionProbe {
+    Manufacturer,
+    ProductName,
+    Model,
+    AndroidVersion,
+    Abi,
+    Memory,
+    Storage,
+    Battery,
+    Debuggable,
+    Secure,
+}
+
+fn inspection_plan(selection: InspectionSelection) -> Vec<InspectionProbe> {
+    let mut probes = Vec::new();
+    if selection.identity {
+        probes.extend([
+            InspectionProbe::Manufacturer,
+            InspectionProbe::ProductName,
+            InspectionProbe::Model,
+            InspectionProbe::AndroidVersion,
+            InspectionProbe::Abi,
+        ]);
+    }
+    if selection.performance {
+        probes.extend([InspectionProbe::Memory, InspectionProbe::Storage]);
+    }
+    if selection.power {
+        probes.push(InspectionProbe::Battery);
+    }
+    if selection.system {
+        probes.extend([InspectionProbe::Debuggable, InspectionProbe::Secure]);
+    }
+    probes
 }
 
 fn parse_nonempty(value: String) -> Option<String> {
@@ -87,55 +144,106 @@ fn property(
 pub fn inspect_device(
     app: tauri::AppHandle,
     session_serial: String,
+    selection: InspectionSelection,
 ) -> Result<InspectionSnapshot, String> {
     let adb_path = located_adb(&app)?;
-    let memory = optional_output(
-        &adb_path,
-        AdbCommand::Memory {
-            session_serial: session_serial.clone(),
-        },
-    )
-    .and_then(|output| parse_memory_total(&output));
-    let storage = optional_output(
-        &adb_path,
-        AdbCommand::Storage {
-            session_serial: session_serial.clone(),
-        },
-    )
-    .and_then(|output| parse_storage_available(&output));
-    let battery = optional_output(
-        &adb_path,
-        AdbCommand::Battery {
-            session_serial: session_serial.clone(),
-        },
-    )
-    .and_then(|output| parse_battery_level(&output));
-    let debuggable = property(&adb_path, &session_serial, DeviceProperty::Debuggable);
-    let secure = property(&adb_path, &session_serial, DeviceProperty::Secure);
-    let mut root_signals = Vec::new();
-    if debuggable.as_deref() == Some("1") {
-        root_signals.push("ro.debuggable=1".to_owned());
-    }
-    if secure.as_deref() == Some("0") {
-        root_signals.push("ro.secure=0".to_owned());
+    let mut snapshot = InspectionSnapshot::default();
+
+    for probe in inspection_plan(selection) {
+        match probe {
+            InspectionProbe::Manufacturer => {
+                snapshot.manufacturer =
+                    property(&adb_path, &session_serial, DeviceProperty::Manufacturer);
+            }
+            InspectionProbe::ProductName => {
+                snapshot.product_name =
+                    property(&adb_path, &session_serial, DeviceProperty::ProductName);
+            }
+            InspectionProbe::Model => {
+                snapshot.model = property(&adb_path, &session_serial, DeviceProperty::Model);
+            }
+            InspectionProbe::AndroidVersion => {
+                snapshot.android_version =
+                    property(&adb_path, &session_serial, DeviceProperty::AndroidVersion);
+            }
+            InspectionProbe::Abi => {
+                snapshot.abi = property(&adb_path, &session_serial, DeviceProperty::Abi);
+            }
+            InspectionProbe::Memory => {
+                snapshot.ram_bytes = optional_output(
+                    &adb_path,
+                    AdbCommand::Memory {
+                        session_serial: session_serial.clone(),
+                    },
+                )
+                .and_then(|output| parse_memory_total(&output));
+            }
+            InspectionProbe::Storage => {
+                snapshot.storage_available_bytes = optional_output(
+                    &adb_path,
+                    AdbCommand::Storage {
+                        session_serial: session_serial.clone(),
+                    },
+                )
+                .and_then(|output| parse_storage_available(&output));
+            }
+            InspectionProbe::Battery => {
+                snapshot.battery_percent = optional_output(
+                    &adb_path,
+                    AdbCommand::Battery {
+                        session_serial: session_serial.clone(),
+                    },
+                )
+                .and_then(|output| parse_battery_level(&output));
+            }
+            InspectionProbe::Debuggable => {
+                if property(&adb_path, &session_serial, DeviceProperty::Debuggable).as_deref()
+                    == Some("1")
+                {
+                    snapshot.root_signals.push("ro.debuggable=1".to_owned());
+                }
+            }
+            InspectionProbe::Secure => {
+                if property(&adb_path, &session_serial, DeviceProperty::Secure).as_deref()
+                    == Some("0")
+                {
+                    snapshot.root_signals.push("ro.secure=0".to_owned());
+                }
+            }
+        }
     }
 
-    Ok(InspectionSnapshot {
-        manufacturer: property(&adb_path, &session_serial, DeviceProperty::Manufacturer),
-        product_name: property(&adb_path, &session_serial, DeviceProperty::ProductName),
-        model: property(&adb_path, &session_serial, DeviceProperty::Model),
-        android_version: property(&adb_path, &session_serial, DeviceProperty::AndroidVersion),
-        abi: property(&adb_path, &session_serial, DeviceProperty::Abi),
-        ram_bytes: memory,
-        storage_available_bytes: storage,
-        battery_percent: battery,
-        root_signals,
-    })
+    Ok(snapshot)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_battery_level, parse_memory_total, parse_storage_available};
+    use super::{
+        InspectionProbe, InspectionSelection, inspection_plan, parse_battery_level,
+        parse_memory_total, parse_storage_available,
+    };
+
+    #[test]
+    fn inspection_plan_contains_only_enabled_probe_groups() {
+        let plan = inspection_plan(InspectionSelection {
+            identity: true,
+            performance: false,
+            power: true,
+            system: false,
+        });
+
+        assert_eq!(
+            plan,
+            vec![
+                InspectionProbe::Manufacturer,
+                InspectionProbe::ProductName,
+                InspectionProbe::Model,
+                InspectionProbe::AndroidVersion,
+                InspectionProbe::Abi,
+                InspectionProbe::Battery,
+            ],
+        );
+    }
 
     #[test]
     fn parses_memory_total_as_bytes() {

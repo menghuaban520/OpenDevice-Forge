@@ -16,6 +16,7 @@ import { DeviceOverview } from "./features/overview/DeviceOverview";
 import { createAcceptedLayoutProfiles, LayoutEditor } from "./features/plugins/LayoutEditor";
 import { PluginMarket } from "./features/plugins/PluginMarket";
 import {
+  ALL_INSPECTION_GROUPS,
   createDeviceClient,
   type AdbDeviceSummary,
   type DeviceClient,
@@ -155,7 +156,10 @@ export function App({ deviceClient }: AppProps) {
         setConnectionMessage(connection === "unauthorized" ? "手机尚未允许 USB 调试" : "手机连接离线，请重新插拔");
         return;
       }
-      const inspection = await client.inspectDevice(selected.sessionSerial);
+      const inspection = await client.inspectDevice(
+        selected.sessionSerial,
+        ALL_INSPECTION_GROUPS,
+      );
       if (sequence !== refreshSequence.current) return;
       setSnapshot(snapshotFromInspection(inspection));
       setConnectionMessage("真机已连接 · 只读检查完成");
