@@ -8,6 +8,7 @@ import java.net.Socket
 import java.net.SocketException
 import java.security.SecureRandom
 import java.util.Collections
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -110,6 +111,11 @@ class DefaultSocketHttpServer(
                 scope.launch {
                     try {
                         handleClient(client)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: IOException) {
+                        // A peer may disconnect while a response is being written, and stop()
+                        // deliberately closes every active socket. Neither is a server crash.
                     } finally {
                         activeClients -= client
                         runCatching { client.close() }

@@ -108,3 +108,29 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 - Does not apply to: iPhone/iPad discovery, vendor-only diagnostic protocols, automatic Platform-Tools installation, or claims that a specific model supports Root or a local model.
 - Revalidate when: adding an Apple provider, bundling or replacing ADB, introducing a plugin configuration schema, or displaying manufacturer-specific facts.
 - Verified at: 2026-08-16.
+
+## Android node control surface
+
+The Android companion is a compact, touch-first operations console for the phone owner. Its primary flow is `enable module -> verify model -> start visible service -> create a client key or chat locally`. It is not a miniature desktop dashboard and does not imply that the future public gateway, Root Broker, marketplace, creator, or script sandbox already exists.
+
+### Android reference adoption map
+
+| Source | Adopt | Adapt | Reject | Evidence |
+| --- | --- | --- | --- | --- |
+| Android Material 3 for Compose | Native buttons, text fields, cards, tonal surfaces, dialogs, progress and semantic colors | Use a restrained device-utility hierarchy, factual Chinese copy, and one primary action in the current task area | Expressive decoration that competes with live device and safety state; equal card grids | https://developer.android.com/develop/ui/compose/designsystems/material3 |
+| Android compact navigation bar | Four persistent destinations of equal importance on a phone | Node, Modules, Connections, and Status remain stable and keep their state while switching | More than five destinations, text glyphs pretending to be finished icons, hidden marketplace routes | https://developer.android.com/develop/ui/compose/components/navigation-bar |
+| Android Compose dialog guidance | Modal confirmation for LAN exposure and one-time token disclosure | LAN confirmation uses the full compact window so the HTTP warning cannot be missed; the token dialog is dismissible and never reconstructs the raw token | Persisted confirmation, auto-opened settings, or a small warning buried under other controls | https://developer.android.com/develop/ui/compose/components/dialog |
+| Android notification permission guidance | Ask in the visible start-node action on API 33+ | A denial keeps the service stopped and explains why in the Node screen | Asking on first launch, bypassing denial, or opening system settings automatically | https://developer.android.com/develop/ui/compose/notifications/notification-permission |
+
+### Android structural and visual rules
+
+1. Reading order on Node is prerequisites, model action, service action, then local chat. The first unsatisfied prerequisite owns the primary action and blocking explanation.
+2. Use the existing four-destination bottom navigation on compact phones. Each destination uses one consistent Material line-icon family and a text label; no single Chinese character acts as a placeholder icon.
+3. Page padding is 20 dp horizontally, major vertical gaps are 16 dp, and related rows use 8–12 dp. Cards use 16 dp radius and tonal separation without decorative shadows.
+4. Headings use the system Material type scale. Endpoints, USB commands, fingerprints, and the one-time token use selectable monospace text; long values wrap instead of shrinking.
+5. Blue/primary is reserved for the current primary action and selected navigation. Error colors mean an actual blocking or destructive state; amber language is expressed with plain warning copy, not repeated status pills.
+6. Loading, missing, ready, busy, paused, blocked, failed, empty, and safe-mode states are explicit. Buttons are disabled during incompatible actions; no fake throughput, capacity, IP, or model readiness is rendered.
+7. LAN is off by default. Enabling it always requires a fresh full-screen phone confirmation with the exact cleartext-HTTP warning. Disabling it discards that confirmation.
+8. Raw client tokens exist only in the one-time creation surface. After dismissal, lists show label, fingerprint, creation/revocation state, and Revoke only.
+9. Public gateway, Root Broker, Marketplace, Creator, and Script sandbox stay visible only as `尚未实现` in Status. Modules explicitly says `尚未提供在线模块市场`; there is no dead search/install control.
+10. This release targets compact Android phones. Wider windows center content at a readable maximum width instead of stretching definition rows; adaptive rail/tablet behavior remains a later verified enhancement.

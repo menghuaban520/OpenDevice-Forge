@@ -31,3 +31,11 @@ The accepted v3 concepts were treated as structural specifications, not as image
 3. Replaced the first metallic application icon direction with the same flat, restrained mark used in the desktop title bar and website.
 4. Kept the website as a long-form product page with borders and editorial spacing instead of repeating dashboard cards.
 5. Kept all release and device-compatibility gaps visible in the page itself, not only in developer documentation.
+
+## Android node control surface
+
+- The phone companion uses the same factual hierarchy: prerequisites first, then the one current action, followed by local chat and diagnosis.
+- Four Material outline icons replace the earlier single-character placeholder icons.
+- LAN exposure uses a full-screen, fresh confirmation with the cleartext-HTTP warning; raw client tokens exist only in the dismissible one-time surface.
+- Public gateway, Root Broker, Marketplace, Creator, and Script sandbox remain labeled `尚未实现`; the Modules screen has no dead search/install control.
+- Source review, JVM tests, lint, and both APK builds passed. No phone or emulator was attached, so visual fidelity and touch behavior are not marked verified yet.

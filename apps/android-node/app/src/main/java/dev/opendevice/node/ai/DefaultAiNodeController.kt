@@ -16,6 +16,7 @@ import dev.opendevice.node.kernel.ModuleRegistry
 import dev.opendevice.node.kernel.ModuleStartupGuard
 import dev.opendevice.node.model.ModelDownloadRepository
 import java.io.File
+import java.net.BindException
 import java.net.InetAddress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -232,6 +233,7 @@ class DefaultAiNodeController(
             }
         }
         val startedAt = monotonicNanos()
+        var requestedPort: Int? = null
         return try {
             inferenceEngine.load(
                 model = model,
@@ -241,7 +243,9 @@ class DefaultAiNodeController(
             val elapsed = nanosToMillis(monotonicNanos() - startedAt)
             mutableMetrics.value = mutableMetrics.value.copy(modelLoadMillis = elapsed)
             samplePeakRss()
-            activeEndpoint = socketHttpServer?.start(serverConfig())
+            val requestedConfig = serverConfig()
+            requestedPort = requestedConfig.port
+            activeEndpoint = socketHttpServer?.start(requestedConfig)
             mutableState.value = servingState()
             scheduleStableMarker()
             StartResult.Started
@@ -251,7 +255,12 @@ class DefaultAiNodeController(
             runCatching { inferenceEngine.unload() }
             startupGuard.markCleanStop(moduleId)
             if (error is CancellationException) throw error
-            failStart(error)
+            val mappedError = if (error is BindException && requestedPort != null) {
+                IllegalStateException("端口 $requestedPort 已被占用", error)
+            } else {
+                error
+            }
+            failStart(mappedError)
         }
     }
 

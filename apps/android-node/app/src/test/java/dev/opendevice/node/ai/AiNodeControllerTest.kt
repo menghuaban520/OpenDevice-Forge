@@ -23,6 +23,7 @@ import dev.opendevice.node.kernel.StartupMarker
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadState
 import java.io.File
+import java.net.BindException
 import java.net.InetAddress
 import java.nio.file.Files
 import kotlinx.coroutines.CompletableDeferred
@@ -212,6 +213,28 @@ class AiNodeControllerTest {
     }
 
     @Test
+    fun actualBindRaceUsesTheSamePortConflictMessage() = runTest {
+        val server = FakeSocketHttpServer(startFailure = BindException("Address already in use"))
+        val fixture = fixture(
+            scheduler = testScheduler,
+            socketServer = server,
+            serverConfig = {
+                ServerConfig(
+                    address = InetAddress.getByName("127.0.0.1"),
+                    port = 8_080,
+                    mode = NetworkMode.LOOPBACK,
+                )
+            },
+        )
+        fixture.registry.setEnabled(true)
+
+        assertEquals(
+            StartResult.Failed("端口 8080 已被占用"),
+            fixture.controller.start(),
+        )
+    }
+
+    @Test
     fun metricsUseMonotonicTimeAndNeverStoreText() = runTest {
         val clock = SequenceClock(
             0L,
@@ -246,6 +269,13 @@ class AiNodeControllerTest {
         monotonicNanos: () -> Long = System::nanoTime,
         rssBytes: () -> Long? = { 100L },
         socketServer: SocketHttpServer? = null,
+        serverConfig: () -> ServerConfig = {
+            ServerConfig(
+                address = InetAddress.getLoopbackAddress(),
+                port = 11_435,
+                mode = NetworkMode.LOOPBACK,
+            )
+        },
     ): ControllerFixture {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(scheduler))
         val registry = FakeModuleRegistry(manifest)
@@ -266,6 +296,7 @@ class AiNodeControllerTest {
             monotonicNanos = monotonicNanos,
             rssBytes = rssBytes,
             socketHttpServer = socketServer,
+            serverConfig = serverConfig,
         )
         return ControllerFixture(controller, registry, models, engine, facts, startupGuard)
     }
@@ -380,7 +411,9 @@ private class SequenceRss(vararg values: Long) {
     fun next(): Long? = if (iterator.hasNext()) iterator.nextLong() else null
 }
 
-private class FakeSocketHttpServer : SocketHttpServer {
+private class FakeSocketHttpServer(
+    private val startFailure: Exception? = null,
+) : SocketHttpServer {
     private val mutableEndpoint = MutableStateFlow<ServerEndpoint?>(null)
     override val endpoint: StateFlow<ServerEndpoint?> = mutableEndpoint
     var startCount = 0
@@ -388,6 +421,7 @@ private class FakeSocketHttpServer : SocketHttpServer {
 
     override suspend fun start(config: ServerConfig): ServerEndpoint {
         startCount += 1
+        startFailure?.let { throw it }
         return ServerEndpoint("127.0.0.1", 12_345, NetworkMode.LOOPBACK).also {
             mutableEndpoint.value = it
         }

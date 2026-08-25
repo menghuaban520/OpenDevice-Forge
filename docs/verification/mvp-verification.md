@@ -28,7 +28,8 @@ This is not a public release or a phone-compatibility certification.
 | Apple distribution signature/notarization | No Developer ID credentials were provided | Not available |
 | HUAWEI nova 7 SE 5G 乐活版 | No real phone was connected during verification | Not available |
 | Windows runtime | Workflow is configured; no Windows hardware/run was available locally | Not available |
-| Local model and remote API | Only declarative plugin/readiness surfaces exist | Deliberately not implemented |
+| Android local model and local/USB API | 87 Android JVM tests, lint, arm64 app APK, and instrumentation APK | Source/build passed; real phone pending |
+| Public-IP gateway | Requires a separately authorized VPS, TLS, and phone-initiated tunnel | Deliberately not implemented |
 
 ## Packaging result
 
@@ -54,4 +55,23 @@ This is not a public release or a phone-compatibility certification.
 1. Connect one chosen phone, enable developer options and USB debugging, authorize this computer, and compare the live snapshot with the public/demo snapshot.
 2. Run the configured workflow on Windows and inspect the actual installer and native window before calling Windows supported.
 3. Add platform signing/notarization only after the repository/owner and distribution policy are chosen.
-4. Implement a local model node and remote gateway as separate reviewed plugins; their current presence in the UI is architectural, not runtime proof.
+4. Run the Android node APK and its instrumentation suite on the target CDL-AN50; the current evidence proves source, tests, lint, native arm64 packaging, and test-APK compilation, not real-device inference.
+5. Implement and deploy the public gateway only after a VPS and its externally visible side effects are separately authorized.
+
+## Android node addendum — 2026-08-26
+
+The Android companion now implements the built-in AI module lifecycle, verified resumable model storage, pinned `llama.cpp` JNI integration, one-generation-at-a-time controller, bounded authenticated OpenAI-compatible HTTP service, phone settings, local chat, client-key management, and the four-screen control surface.
+
+This addendum does not replace real-phone evidence. No Android device or emulator was attached during this build, so the UI instrumentation flow, Android Keystore runtime, notification permission, OEM background behavior, model download, JNI inference, USB client, and thermal soak remain pending.
+
+### UI verification
+
+| Gate | Status | Evidence | Action |
+| --- | --- | --- | --- |
+| Task and structure | PASS | Node follows enable → model → service → local chat; four stable bottom destinations | Recheck on CDL-AN50 at its real font scale |
+| Color and type | PASS at source/build layer | Material semantic colors and type scale; selectable monospace endpoint, command, fingerprint, and token | Capture real light/dark screenshots before visual sign-off |
+| Icons and shape | PASS at source/build layer | One Material outline icon family; 16 dp card radius; no text-glyph navigation icons | Inspect optical alignment on the phone |
+| Components and states | PASS at test layer | Unit tests cover prerequisites, LAN confirmation, one-time token, settings bounds, local streaming, and actual bind race | Execute `NodeFlowTest` on a connected device |
+| Motion and feedback | N/A | No decorative or continuous motion was added; state changes use native Compose feedback | Reassess if animated transitions are introduced |
+| Build and device | PARTIAL | 87 JVM tests, lint, app APK, and Android-test APK pass | Blocked on absent Android device/emulator |
+| Learning continuity | PASS | `DESIGN.md`, prior fidelity evidence, and the Android UI quality gates were applied | Revalidate after marketplace, public gateway, Root Broker, or tablet layouts exist |
