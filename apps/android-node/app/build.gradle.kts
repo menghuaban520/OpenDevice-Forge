@@ -41,6 +41,7 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
 
+    sourceSets["main"].assets.srcDir("../../../packages/module-contract/fixtures")
     sourceSets["test"].resources.srcDir("../../../packages/module-contract/fixtures")
 }
 
