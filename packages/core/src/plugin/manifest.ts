@@ -1,10 +1,17 @@
 import type {
+  ContributeType as ModuleContributionType,
+  ModuleManifestV1,
+  SourceKind as ModuleSourceKind,
+} from "@opendevice/module-contract";
+import type {
   ContributionType,
   ManifestValidationError,
   ManifestValidationResult,
   PlacementSlot,
+  PluginContribution,
   PluginManifest,
   PluginPermission,
+  PluginSource,
 } from "./types";
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/;
@@ -29,6 +36,120 @@ const PLACEMENT_RULES: Record<ContributionType, PlacementSlot[]> = {
   companion: ["service"],
   reportSection: ["report"],
   contextAction: ["context"],
+};
+
+type SharedPermission = Extract<
+  PluginPermission,
+  ModuleManifestV1["permissions"][number]
+>;
+
+const isSharedPermission = (
+  permission: ModuleManifestV1["permissions"][number],
+): permission is SharedPermission =>
+  permission === "device.read" ||
+  permission === "network.outbound" ||
+  permission === "service.local";
+
+const MODULE_CONTRIBUTION_TYPES: Record<
+  ModuleContributionType,
+  ContributionType
+> = {
+  navigation: "navigation",
+  overviewAction: "overviewAction",
+  overviewSection: "overviewSection",
+  configuration: "configuration",
+  workflow: "workflow",
+  service: "service",
+  screen: "navigation",
+  deviceControl: "workflow",
+  companionApp: "companion",
+  reportSection: "reportSection",
+};
+
+const legacySource = (
+  kind: ModuleSourceKind,
+  manifest: ModuleManifestV1,
+): PluginSource => {
+  switch (kind) {
+    case "builtin":
+    case "official":
+      return { kind: "official" };
+    case "community":
+      return { kind: "community", catalog: manifest.source.repository ?? "" };
+    case "github":
+      return manifest.source.revision
+        ? {
+            kind: "github",
+            repository: manifest.source.repository ?? "",
+            commit: manifest.source.revision,
+          }
+        : {
+            kind: "github",
+            repository: manifest.source.repository ?? "",
+          };
+    case "local":
+      return {
+        kind: "local",
+        fingerprint: manifest.integrity.sha256 ?? manifest.source.revision ?? "",
+      };
+  }
+};
+
+const legacyContribution = (
+  contribution: ModuleManifestV1["contributes"][number],
+): PluginContribution => {
+  const base = {
+    id: contribution.id,
+    type: MODULE_CONTRIBUTION_TYPES[contribution.type],
+    label: contribution.label,
+  };
+  return contribution.defaultPlacement === "fullscreen"
+    ? base
+    : { ...base, defaultPlacement: contribution.defaultPlacement };
+};
+
+export const moduleManifestToLegacyPlugin = (
+  manifest: ModuleManifestV1,
+): PluginManifest => {
+  const contributes = manifest.contributes.map(legacyContribution);
+  if (
+    manifest.capabilities.includes("api.openai-compatible") &&
+    !contributes.some((contribution) => contribution.type === "service")
+  ) {
+    contributes.push({
+      id: `${manifest.id}.openai-compatible`,
+      type: "service",
+      label: "OpenAI 兼容接口",
+      defaultPlacement: "service",
+    });
+  }
+
+  const runtimeKind = contributes.some(
+    (contribution) => contribution.type === "service",
+  )
+    ? "service"
+    : "workflow";
+
+  return {
+    manifestVersion: "1",
+    id: manifest.id,
+    name: manifest.name,
+    summary: manifest.summary,
+    version: manifest.version,
+    publisher: manifest.publisher,
+    kernel: manifest.kernel,
+    source: legacySource(manifest.source.kind, manifest),
+    execution:
+      manifest.runtime.kind === "builtin" || manifest.runtime.kind === "companion"
+        ? "native"
+        : "declarative",
+    audience: manifest.audience,
+    risk: manifest.risk,
+    permissions: manifest.permissions.filter(isSharedPermission),
+    contributes,
+    runtime: { kind: runtimeKind, entry: manifest.runtime.entry },
+    protected: manifest.protected,
+  };
 };
 
 const parseVersion = (version: string): [number, number, number] | undefined => {

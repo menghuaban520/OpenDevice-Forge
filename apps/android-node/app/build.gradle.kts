@@ -40,6 +40,8 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    sourceSets["test"].resources.srcDir("../../../packages/module-contract/fixtures")
 }
 
 kotlin {

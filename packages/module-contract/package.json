@@ -1,5 +1,5 @@
 {
-  "name": "@opendevice/core",
+  "name": "@opendevice/module-contract",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,17 +7,19 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "lint": "oxlint src",
+    "generate": "node scripts/generate.mjs",
+    "lint": "oxlint src scripts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "pnpm generate -- --check && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@opendevice/module-contract": "workspace:*"
+    "ajv": "8.20.0"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
     "oxlint": "1.78.0",
+    "quicktype-core": "26.0.0",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }

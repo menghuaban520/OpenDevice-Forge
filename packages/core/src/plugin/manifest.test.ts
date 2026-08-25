@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { validatePluginManifest } from "./manifest";
+import fixture from "../../../module-contract/fixtures/ai-node.json" with {
+  type: "json",
+};
+import {
+  validateModuleManifest,
+  type ModuleManifestV1,
+} from "@opendevice/module-contract";
+import {
+  moduleManifestToLegacyPlugin,
+  validatePluginManifest,
+} from "./manifest";
 import type { PluginManifest } from "./types";
 
 const validManifest: PluginManifest = {
@@ -133,5 +143,47 @@ describe("validatePluginManifest", () => {
     expect(result.errors).toContainEqual(
       expect.objectContaining({ code: "runtime_invalid" }),
     );
+  });
+
+  it("adapts the canonical AI module without weakening the legacy validator", () => {
+    const moduleManifest = fixture as unknown as ModuleManifestV1;
+    expect(
+      validateModuleManifest(moduleManifest, {
+        kernelVersion: "0.1.0",
+        androidSdk: 36,
+        abis: ["arm64-v8a"],
+        availableRuntimes: ["builtin"],
+      }),
+    ).toEqual({ ok: true, errors: [] });
+
+    const legacy = moduleManifestToLegacyPlugin(moduleManifest);
+    expect(legacy).toMatchObject({
+      id: "dev.opendevice.module.ai-node",
+      source: { kind: "official" },
+      execution: "native",
+      permissions: ["device.read", "network.outbound", "service.local"],
+      runtime: { kind: "service", entry: "ai-node" },
+      protected: true,
+    });
+    expect(validatePluginManifest(legacy, "0.1.0")).toEqual({
+      ok: true,
+      errors: [],
+    });
+  });
+
+  it("maps the OpenAI-compatible capability to a legacy service contribution", () => {
+    const moduleManifest = {
+      ...fixture,
+      contributes: fixture.contributes.filter(
+        (contribution) => contribution.type !== "service",
+      ),
+    } as unknown as ModuleManifestV1;
+
+    expect(moduleManifestToLegacyPlugin(moduleManifest).contributes).toContainEqual({
+      id: "dev.opendevice.module.ai-node.openai-compatible",
+      type: "service",
+      label: "OpenAI 兼容接口",
+      defaultPlacement: "service",
+    });
   });
 });

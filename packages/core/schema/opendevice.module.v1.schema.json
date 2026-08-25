@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opendevice.dev/contracts/module-manifest-v1.schema.json",
+  "title": "ModuleManifestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "summary",
+    "version",
+    "publisher",
+    "license",
+    "kernel",
+    "platform",
+    "source",
+    "integrity",
+    "runtime",
+    "audience",
+    "risk",
+    "permissions",
+    "capabilities",
+    "contributes",
+    "configuration",
+    "service",
+    "protected"
+  ],
+  "properties": {
+    "manifestVersion": {
+      "const": "1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(?:[a-z0-9]+[.-])+[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "publisher": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "kernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "maxExclusive"],
+      "properties": {
+        "min": {
+          "type": "string"
+        },
+        "maxExclusive": {
+          "type": "string"
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["android", "hardware"],
+      "properties": {
+        "android": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minSdk", "abis"],
+          "properties": {
+            "minSdk": {
+              "type": "integer",
+              "minimum": 21
+            },
+            "abis": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"]
+              }
+            }
+          }
+        },
+        "hardware": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minMemoryBytes", "minStorageBytes"],
+          "properties": {
+            "minMemoryBytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "minStorageBytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["builtin", "official", "community", "github", "local"]
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 128
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["official", "community", "github"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["repository", "revision"]
+          }
+        }
+      ]
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sha256",
+        "publisherKeySha256",
+        "publisherSignature",
+        "rollbackVersion"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["host-apk", "package"]
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "publisherKeySha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "publisherSignature": {
+          "type": ["string", "null"],
+          "minLength": 16
+        },
+        "rollbackVersion": {
+          "type": ["string", "null"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "package"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "publisherKeySha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "publisherSignature": {
+                "type": "string",
+                "minLength": 16
+              }
+            }
+          }
+        }
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "entry",
+        "foregroundService",
+        "isolatedProcess",
+        "requiresRootBroker",
+        "companionPackage"
+      ],
+      "properties": {
+        "kind": {
+          "enum": ["builtin", "declarative", "sandbox", "companion"]
+        },
+        "entry": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9:._/-]*$"
+        },
+        "foregroundService": {
+          "type": "boolean"
+        },
+        "isolatedProcess": {
+          "type": "boolean"
+        },
+        "requiresRootBroker": {
+          "type": "boolean"
+        },
+        "companionPackage": {
+          "type": ["string", "null"],
+          "pattern": "^(?:[a-z0-9]+\\.)+[a-z0-9_]+$"
+        }
+      }
+    },
+    "audience": {
+      "enum": ["general", "advanced"]
+    },
+    "risk": {
+      "enum": ["low", "medium", "high"]
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "device.read",
+          "model.read",
+          "network.outbound",
+          "service.local",
+          "display.fullscreen",
+          "device.bluetooth",
+          "device.usb",
+          "media.camera",
+          "media.microphone",
+          "location.read",
+          "root.broker"
+        ]
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]+$"
+      }
+    },
+    "contributes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "label", "defaultPlacement"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]+$"
+          },
+          "type": {
+            "enum": [
+              "navigation",
+              "overviewSection",
+              "overviewAction",
+              "configuration",
+              "workflow",
+              "service",
+              "screen",
+              "deviceControl",
+              "companionApp",
+              "reportSection"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "defaultPlacement": {
+            "enum": [
+              "sidebar",
+              "overview",
+              "shortcut",
+              "service",
+              "report",
+              "context",
+              "fullscreen"
+            ]
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields"],
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "label",
+              "type",
+              "required",
+              "default",
+              "minimum",
+              "maximum",
+              "pattern",
+              "options"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z][A-Za-z0-9]*$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "type": {
+                "enum": ["boolean", "integer", "number", "string", "select"]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "default": {
+                "type": ["boolean", "integer", "number", "string", "null"]
+              },
+              "minimum": {
+                "type": ["number", "null"]
+              },
+              "maximum": {
+                "type": ["number", "null"]
+              },
+              "pattern": {
+                "type": ["string", "null"]
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "service": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "stop", "healthPath", "logFields", "result"],
+          "properties": {
+            "start": {
+              "const": "explicit"
+            },
+            "stop": {
+              "const": "explicit"
+            },
+            "healthPath": {
+              "type": "string",
+              "pattern": "^/"
+            },
+            "logFields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "requestId",
+                  "timestamp",
+                  "model",
+                  "inputTokens",
+                  "outputTokens",
+                  "durationMillis",
+                  "statusCode",
+                  "peakRssBytes",
+                  "batteryTemperatureC"
+                ]
+              }
+            },
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "schemaId", "contentTypes"],
+              "properties": {
+                "kind": {
+                  "enum": ["structured", "stream"]
+                },
+                "schemaId": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9.-]+$"
+                },
+                "contentTypes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "protected": {
+      "type": "boolean"
+    }
+  }
+}

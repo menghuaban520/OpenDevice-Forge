@@ -1,3 +1,5 @@
+export type { ModuleManifestV1 } from "@opendevice/module-contract";
+
 export const PLACEMENT_SLOTS = [
   "sidebar",
   "overview",

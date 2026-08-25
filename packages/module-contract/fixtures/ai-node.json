@@ -1,0 +1,167 @@
+{
+  "manifestVersion": "1",
+  "id": "dev.opendevice.module.ai-node",
+  "name": "本地 AI 节点",
+  "summary": "在手机本地运行模型，并向电脑提供兼容接口。",
+  "version": "0.1.0",
+  "publisher": "OpenDevice Forge",
+  "license": "MIT",
+  "kernel": {
+    "min": "0.1.0",
+    "maxExclusive": "1.0.0"
+  },
+  "platform": {
+    "android": {
+      "minSdk": 28,
+      "abis": ["arm64-v8a"]
+    },
+    "hardware": {
+      "minMemoryBytes": 1176317600,
+      "minStorageBytes": 907882144
+    }
+  },
+  "source": {
+    "kind": "builtin"
+  },
+  "integrity": {
+    "kind": "host-apk",
+    "sha256": null,
+    "publisherKeySha256": null,
+    "publisherSignature": null,
+    "rollbackVersion": null
+  },
+  "runtime": {
+    "kind": "builtin",
+    "entry": "ai-node",
+    "foregroundService": true,
+    "isolatedProcess": false,
+    "requiresRootBroker": false,
+    "companionPackage": null
+  },
+  "audience": "general",
+  "risk": "medium",
+  "permissions": [
+    "device.read",
+    "model.read",
+    "network.outbound",
+    "service.local"
+  ],
+  "capabilities": [
+    "ai.chat",
+    "api.openai-compatible",
+    "ui.local-chat"
+  ],
+  "contributes": [
+    {
+      "id": "ai-node.service",
+      "type": "service",
+      "label": "本地 AI 节点",
+      "defaultPlacement": "service"
+    },
+    {
+      "id": "ai-node.chat",
+      "type": "navigation",
+      "label": "本机聊天",
+      "defaultPlacement": "sidebar"
+    },
+    {
+      "id": "ai-node.download",
+      "type": "workflow",
+      "label": "下载并校验模型",
+      "defaultPlacement": "shortcut"
+    },
+    {
+      "id": "ai-node.settings",
+      "type": "configuration",
+      "label": "节点设置",
+      "defaultPlacement": "context"
+    },
+    {
+      "id": "ai-node.status",
+      "type": "overviewSection",
+      "label": "节点状态",
+      "defaultPlacement": "overview"
+    }
+  ],
+  "configuration": {
+    "fields": [
+      {
+        "key": "port",
+        "label": "端口",
+        "type": "integer",
+        "required": true,
+        "default": 8080,
+        "minimum": 1024,
+        "maximum": 65535,
+        "pattern": null,
+        "options": []
+      },
+      {
+        "key": "lanEnabled",
+        "label": "局域网连接",
+        "type": "boolean",
+        "required": true,
+        "default": false,
+        "minimum": null,
+        "maximum": null,
+        "pattern": null,
+        "options": []
+      },
+      {
+        "key": "contextSize",
+        "label": "上下文长度",
+        "type": "integer",
+        "required": true,
+        "default": 2048,
+        "minimum": 2048,
+        "maximum": 2048,
+        "pattern": null,
+        "options": []
+      },
+      {
+        "key": "maxOutputTokens",
+        "label": "最大输出",
+        "type": "integer",
+        "required": true,
+        "default": 256,
+        "minimum": 1,
+        "maximum": 512,
+        "pattern": null,
+        "options": []
+      },
+      {
+        "key": "threads",
+        "label": "推理线程",
+        "type": "integer",
+        "required": true,
+        "default": 2,
+        "minimum": 2,
+        "maximum": 4,
+        "pattern": null,
+        "options": []
+      }
+    ]
+  },
+  "service": {
+    "start": "explicit",
+    "stop": "explicit",
+    "healthPath": "/health",
+    "logFields": [
+      "requestId",
+      "timestamp",
+      "model",
+      "inputTokens",
+      "outputTokens",
+      "durationMillis",
+      "statusCode",
+      "peakRssBytes",
+      "batteryTemperatureC"
+    ],
+    "result": {
+      "kind": "stream",
+      "schemaId": "openai.chat.completion.v1",
+      "contentTypes": ["application/json", "text/event-stream"]
+    }
+  },
+  "protected": true
+}
