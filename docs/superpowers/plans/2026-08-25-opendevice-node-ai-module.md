@@ -6,7 +6,7 @@
 
 **Architecture:** Add a Kotlin/Compose Android application whose module kernel owns lifecycle, persistence, crash recovery, and resource policy. A built-in AI module composes a resumable model store, an API-28-compatible `llama.cpp` JNI adapter, a single-flight controller, and a deliberately small HTTP/1.1 server; the existing TypeScript workspace remains the source of the shared module manifest contract. Public VPS relay, marketplace discovery, visual module creation, scripting, Root Broker, and non-AI modules remain separate follow-up deliverables.
 
-**Tech Stack:** Node.js 24+, pnpm 11.5.2, TypeScript 7.0.2, Vitest 4.1.10, JSON Schema Draft 2020-12, Ajv 8.20.0, quicktype-core 26.0.0, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Kotlin 2.3.0, Jetpack Compose BOM 2026.08.00, minSdk 28, target/compileSdk 36, NDK 29.0.14206865, CMake 3.31.6, WorkManager 2.11.2, DataStore 1.2.1, Coroutines/Serialization 1.11.0, `llama.cpp` commit `3737e41370da1830a44c663f9929a0f27591ffa6`.
+**Tech Stack:** Node.js 24+, pnpm 11.5.2, TypeScript 7.0.2, Vitest 4.1.10, JSON Schema Draft 2020-12, Ajv 8.20.0, quicktype-core 26.0.0, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Android Build Tools 36.0.0, Kotlin 2.3.0, Jetpack Compose BOM 2026.06.01, Lifecycle 2.10.0, minSdk 28, target/compileSdk 36, NDK 29.0.14206865, CMake 3.31.6, WorkManager 2.11.2, DataStore 1.2.1, Coroutines/Serialization 1.11.0, `llama.cpp` commit `3737e41370da1830a44c663f9929a0f27591ffa6`.
 
 **Spec:** `docs/superpowers/specs/2026-08-25-opendevice-node-module-console-design.md`
 
@@ -183,6 +183,7 @@ plugins {
 android {
     namespace = "dev.opendevice.node"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
     defaultConfig {
         applicationId = "dev.opendevice.node"
         minSdk = 28
@@ -198,18 +199,18 @@ android {
 }
 
 dependencies {
-    implementation(platform("androidx.compose:compose-bom:2026.08.00"))
+    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2026.08.00"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2026.06.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
