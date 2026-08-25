@@ -9,6 +9,7 @@ android {
     namespace = "dev.opendevice.node"
     compileSdk = 36
     buildToolsVersion = "36.0.0"
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "dev.opendevice.node"
@@ -20,6 +21,15 @@ android {
 
         ndk {
             abiFilters += "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DANDROID_PLATFORM=android-28",
+                    "-DANDROID_STL=c++_shared",
+                )
+            }
         }
     }
 
@@ -35,6 +45,13 @@ android {
 
     packaging {
         jniLibs.useLegacyPackaging = false
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("../inference/CMakeLists.txt")
+            version = "3.31.6"
+        }
     }
 
     testOptions {
