@@ -8,6 +8,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import dev.opendevice.node.OpenDeviceNodeApp
+import java.io.FileDescriptor
+import java.io.PrintWriter
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +60,30 @@ class AiNodeService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun dump(
+        fd: FileDescriptor,
+        writer: PrintWriter,
+        args: Array<out String>,
+    ) {
+        super.dump(fd, writer, args)
+        val state = controller.state.value
+        val metrics = controller.metrics.value
+        writer.println("opendevice.state=${state.diagnosticName()}")
+        writer.println("opendevice.modelLoadMillis=${metrics.modelLoadMillis.orUnknown()}")
+        writer.println("opendevice.firstTokenMillis=${metrics.firstTokenMillis.orUnknown()}")
+        writer.println(
+            "opendevice.outputTokensPerSecond=" +
+                (metrics.outputTokensPerSecond?.toString() ?: "unknown"),
+        )
+        writer.println("opendevice.peakRssBytes=${metrics.peakRssBytes.orUnknown()}")
+        writer.println("opendevice.batteryPercent=${metrics.batteryPercent.orUnknown()}")
+        writer.println(
+            "opendevice.batteryTemperatureC=" +
+                (metrics.batteryTemperatureC?.toString() ?: "unknown"),
+        )
+        writer.println("opendevice.thermal=${metrics.thermal.name}")
+    }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
@@ -166,6 +192,18 @@ class AiNodeService : Service() {
         "%.1f",
         toDouble() / 1_073_741_824.0,
     )
+
+    private fun AiNodeState.diagnosticName(): String = when (this) {
+        AiNodeState.Stopped -> "stopped"
+        AiNodeState.Starting -> "starting"
+        is AiNodeState.Serving -> "serving"
+        is AiNodeState.Busy -> "busy"
+        is AiNodeState.PausedHeat -> "paused_heat"
+        is AiNodeState.BlockedMemory -> "blocked_memory"
+        is AiNodeState.Failed -> "failed"
+    }
+
+    private fun Number?.orUnknown(): String = this?.toString() ?: "unknown"
 
     companion object {
         const val ACTION_START = "dev.opendevice.node.action.START_AI_NODE"

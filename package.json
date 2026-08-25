@@ -7,16 +7,17 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r lint && oxlint scripts",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:verification",
+    "test:verification": "node --test scripts/android-node-verification.test.mjs",
     "build": "pnpm -r build",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
+    "openai": "7.5.0",
     "oxlint": "1.78.0",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
 }
-
