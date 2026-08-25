@@ -15,3 +15,9 @@ work/references/
 apps/desktop/node_modules/
 apps/desktop/dist/
 apps/desktop/src-tauri/target/
+
+# Android node local build products and machine-specific SDK path.
+apps/android-node/.gradle/
+apps/android-node/local.properties
+apps/android-node/**/build/
+apps/android-node/**/.cxx/
