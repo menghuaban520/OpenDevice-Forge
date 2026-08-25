@@ -6,7 +6,7 @@
 
 **Architecture:** Add a Kotlin/Compose Android application whose module kernel owns lifecycle, persistence, crash recovery, and resource policy. A built-in AI module composes a resumable model store, an API-28-compatible `llama.cpp` JNI adapter, a single-flight controller, and a deliberately small HTTP/1.1 server; the existing TypeScript workspace remains the source of the shared module manifest contract. Public VPS relay, marketplace discovery, visual module creation, scripting, Root Broker, and non-AI modules remain separate follow-up deliverables.
 
-**Tech Stack:** Node.js 24+, pnpm 11.5.2, TypeScript 7.0.2, Vitest 4.1.10, JSON Schema Draft 2020-12, Ajv 8.20.0, quicktype-core 26.0.0, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Kotlin 2.3.0, Jetpack Compose BOM 2026.08.00, minSdk 28, target/compileSdk 36, NDK 29.0.13113456, CMake 3.31.6, WorkManager 2.11.2, DataStore 1.2.1, Coroutines/Serialization 1.11.0, `llama.cpp` commit `3737e41370da1830a44c663f9929a0f27591ffa6`.
+**Tech Stack:** Node.js 24+, pnpm 11.5.2, TypeScript 7.0.2, Vitest 4.1.10, JSON Schema Draft 2020-12, Ajv 8.20.0, quicktype-core 26.0.0, JDK 17, Gradle 8.14.3, Android Gradle Plugin 8.13.2, Kotlin 2.3.0, Jetpack Compose BOM 2026.08.00, minSdk 28, target/compileSdk 36, NDK 29.0.14206865, CMake 3.31.6, WorkManager 2.11.2, DataStore 1.2.1, Coroutines/Serialization 1.11.0, `llama.cpp` commit `3737e41370da1830a44c663f9929a0f27591ffa6`.
 
 **Spec:** `docs/superpowers/specs/2026-08-25-opendevice-node-module-console-design.md`
 
@@ -95,7 +95,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 After acceptance, install only the exact packages used by this plan:
 
 ```bash
-/opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.13113456" "cmake;3.31.6"
+/opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.31.6"
 /opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_HOME" --list_installed
 ```
 
@@ -1234,7 +1234,7 @@ add_library(opendevice_llama SHARED src/main/cpp/opendevice_llama_jni.cpp)
 target_link_libraries(opendevice_llama PRIVATE llama android log)
 ```
 
-Configure the Android module with NDK `29.0.13113456`, CMake `3.31.6`, `-DANDROID_PLATFORM=android-28`, and only `arm64-v8a`. Do not include or depend on the upstream Android example module because its minSdk is 33.
+Configure the Android module with NDK `29.0.14206865`, CMake `3.31.6`, `-DANDROID_PLATFORM=android-28`, and only `arm64-v8a`. Do not include or depend on the upstream Android example module because its minSdk is 33.
 
 - [ ] **Step 4: Implement explicit native ownership and cancellation**
 
