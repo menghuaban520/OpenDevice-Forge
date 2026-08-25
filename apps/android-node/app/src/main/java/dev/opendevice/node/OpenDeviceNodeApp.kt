@@ -1,8 +1,16 @@
 package dev.opendevice.node
 
 import android.app.Application
+import android.app.ActivityManager
+import android.os.Process
+import android.os.SystemClock
 import android.os.storage.StorageManager
 import androidx.work.WorkManager
+import dev.opendevice.node.ai.AiNodeController
+import dev.opendevice.node.ai.DefaultAiNodeController
+import dev.opendevice.node.device.AndroidDeviceFactsSource
+import dev.opendevice.node.device.DeviceFactsSource
+import dev.opendevice.node.inference.LlamaCppInferenceEngine
 import dev.opendevice.node.kernel.BuiltinModules
 import dev.opendevice.node.kernel.DataStoreModuleRegistry
 import dev.opendevice.node.kernel.ModuleRegistry
@@ -14,6 +22,9 @@ import dev.opendevice.node.model.HttpModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.WorkManagerModelWorkScheduler
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 
@@ -27,12 +38,21 @@ class OpenDeviceNodeApp : Application() {
     lateinit var modelDownloadRepository: ModelDownloadRepository
         private set
 
+    lateinit var deviceFactsSource: DeviceFactsSource
+        private set
+
+    lateinit var aiNodeController: AiNodeController
+        private set
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         val clock = System::currentTimeMillis
+        val aiModule = BuiltinModules.aiNode(this)
         moduleRegistry = DataStoreModuleRegistry.create(
             context = this,
-            builtins = listOf(BuiltinModules.aiNode(this)),
+            builtins = listOf(aiModule),
             clock = clock,
         )
         moduleStartupGuard = SharedPreferencesModuleStartupGuard(
@@ -59,6 +79,32 @@ class OpenDeviceNodeApp : Application() {
             },
             workScheduler = WorkManagerModelWorkScheduler(WorkManager.getInstance(this)),
         )
+        deviceFactsSource = AndroidDeviceFactsSource(this)
+        val activityManager = getSystemService(ActivityManager::class.java)
+        aiNodeController = DefaultAiNodeController(
+            moduleRegistry = moduleRegistry,
+            moduleId = aiModule.id,
+            modelId = BuiltinModelCatalog.qwen3_0_6b.id,
+            modelSizeBytes = BuiltinModelCatalog.qwen3_0_6b.sizeBytes,
+            modelRepository = modelDownloadRepository,
+            inferenceEngine = LlamaCppInferenceEngine(),
+            deviceFactsSource = deviceFactsSource,
+            startupGuard = moduleStartupGuard,
+            applicationScope = applicationScope,
+            monotonicNanos = SystemClock::elapsedRealtimeNanos,
+            rssBytes = {
+                activityManager.getProcessMemoryInfo(intArrayOf(Process.myPid()))
+                    .firstOrNull()
+                    ?.totalPss
+                    ?.toLong()
+                    ?.times(1_024L)
+            },
+        )
+    }
+
+    override fun onTerminate() {
+        applicationScope.cancel()
+        super.onTerminate()
     }
 
     companion object {
