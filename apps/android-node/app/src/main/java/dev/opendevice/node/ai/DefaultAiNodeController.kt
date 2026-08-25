@@ -1,5 +1,9 @@
 package dev.opendevice.node.ai
 
+import dev.opendevice.node.api.NetworkMode
+import dev.opendevice.node.api.ServerConfig
+import dev.opendevice.node.api.ServerEndpoint
+import dev.opendevice.node.api.SocketHttpServer
 import dev.opendevice.node.device.DeviceFacts
 import dev.opendevice.node.device.DeviceFactsSource
 import dev.opendevice.node.inference.ChatMessage
@@ -12,6 +16,7 @@ import dev.opendevice.node.kernel.ModuleRegistry
 import dev.opendevice.node.kernel.ModuleStartupGuard
 import dev.opendevice.node.model.ModelDownloadRepository
 import java.io.File
+import java.net.InetAddress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -43,6 +48,14 @@ class DefaultAiNodeController(
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
     private val bindAddress: String = "127.0.0.1",
     private val port: Int = 0,
+    private val socketHttpServer: SocketHttpServer? = null,
+    private val serverConfig: () -> ServerConfig = {
+        ServerConfig(
+            address = InetAddress.getLoopbackAddress(),
+            port = DEFAULT_API_PORT,
+            mode = NetworkMode.LOOPBACK,
+        )
+    },
 ) : AiNodeController {
     private val mutableState = MutableStateFlow<AiNodeState>(AiNodeState.Stopped)
     private val mutableMetrics = MutableStateFlow(NodeMetrics())
@@ -55,6 +68,7 @@ class DefaultAiNodeController(
     private var activeGenerationJob: Job? = null
     private var explicitlyStopped = true
     private var verifiedModel: File? = null
+    private var activeEndpoint: ServerEndpoint? = null
 
     override val state: StateFlow<AiNodeState> = mutableState.asStateFlow()
     override val metrics: StateFlow<NodeMetrics> = mutableMetrics.asStateFlow()
@@ -131,6 +145,8 @@ class DefaultAiNodeController(
             monitorJob = null
             activeGenerationJob?.cancel(CancellationException("node_stopped:$reason"))
             mutableState.value = AiNodeState.Stopped
+            activeEndpoint = null
+            runCatching { socketHttpServer?.stop() }
             runCatching { inferenceEngine.unload() }
             startupGuard.markCleanStop(moduleId)
             resourceGuard.clearHeatPause()
@@ -189,6 +205,7 @@ class DefaultAiNodeController(
                     mutableState.value = AiNodeState.Failed(
                         error.message ?: "generation_failed",
                     )
+                    runCatching { socketHttpServer?.stop() }
                     runCatching { inferenceEngine.unload() }
                     startupGuard.markCleanStop(moduleId)
                 }
@@ -224,10 +241,14 @@ class DefaultAiNodeController(
             val elapsed = nanosToMillis(monotonicNanos() - startedAt)
             mutableMetrics.value = mutableMetrics.value.copy(modelLoadMillis = elapsed)
             samplePeakRss()
+            activeEndpoint = socketHttpServer?.start(serverConfig())
             mutableState.value = servingState()
             scheduleStableMarker()
             StartResult.Started
         } catch (error: Exception) {
+            activeEndpoint = null
+            runCatching { socketHttpServer?.stop() }
+            runCatching { inferenceEngine.unload() }
             startupGuard.markCleanStop(moduleId)
             if (error is CancellationException) throw error
             failStart(error)
@@ -285,6 +306,8 @@ class DefaultAiNodeController(
                         decision.requiredBytes,
                         decision.availableBytes,
                     )
+                    activeEndpoint = null
+                    runCatching { socketHttpServer?.stop() }
                     if (inferenceEngine.state.value !is InferenceState.Unloaded) {
                         inferenceEngine.unload()
                     }
@@ -302,6 +325,8 @@ class DefaultAiNodeController(
         stableJob = null
         activeGenerationJob?.cancel(CancellationException("thermal_policy"))
         mutableState.value = AiNodeState.PausedHeat(decision.temperatureC, decision.thermal)
+        activeEndpoint = null
+        runCatching { socketHttpServer?.stop() }
         inferenceEngine.unload()
         startupGuard.markCleanStop(moduleId)
     }
@@ -339,7 +364,14 @@ class DefaultAiNodeController(
         ?.let { it.installed && it.enabled }
         ?: false
 
-    private fun servingState() = AiNodeState.Serving(bindAddress, port, modelId)
+    private fun servingState(): AiNodeState.Serving {
+        val endpoint = activeEndpoint
+        return AiNodeState.Serving(
+            bindAddress = endpoint?.address ?: bindAddress,
+            port = endpoint?.port ?: port,
+            modelId = modelId,
+        )
+    }
 
     private fun failStart(error: Exception): StartResult.Failed {
         val message = error.message ?: error::class.java.simpleName
@@ -370,5 +402,6 @@ class DefaultAiNodeController(
         const val NANOS_PER_MILLI = 1_000_000L
         const val NANOS_PER_SECOND = 1_000_000_000.0
         const val STABLE_SERVING_MILLIS = 60_000L
+        const val DEFAULT_API_PORT = 11_435
     }
 }

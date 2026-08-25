@@ -8,6 +8,13 @@ import android.os.storage.StorageManager
 import androidx.work.WorkManager
 import dev.opendevice.node.ai.AiNodeController
 import dev.opendevice.node.ai.DefaultAiNodeController
+import dev.opendevice.node.api.ApiAuditStore
+import dev.opendevice.node.api.ApiKeyStore
+import dev.opendevice.node.api.DefaultSocketHttpServer
+import dev.opendevice.node.api.InMemoryApiAuditStore
+import dev.opendevice.node.api.OpenAiRouter
+import dev.opendevice.node.api.SocketHttpServer
+import dev.opendevice.node.api.createKeystoreApiKeyStore
 import dev.opendevice.node.device.AndroidDeviceFactsSource
 import dev.opendevice.node.device.DeviceFactsSource
 import dev.opendevice.node.inference.LlamaCppInferenceEngine
@@ -42,6 +49,18 @@ class OpenDeviceNodeApp : Application() {
         private set
 
     lateinit var aiNodeController: AiNodeController
+        private set
+
+    lateinit var apiKeyStore: ApiKeyStore
+        private set
+
+    lateinit var apiAuditStore: ApiAuditStore
+        private set
+
+    lateinit var openAiRouter: OpenAiRouter
+        private set
+
+    lateinit var socketHttpServer: SocketHttpServer
         private set
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -81,7 +100,19 @@ class OpenDeviceNodeApp : Application() {
         )
         deviceFactsSource = AndroidDeviceFactsSource(this)
         val activityManager = getSystemService(ActivityManager::class.java)
-        aiNodeController = DefaultAiNodeController(
+        apiKeyStore = runBlocking(Dispatchers.IO) {
+            createKeystoreApiKeyStore(this@OpenDeviceNodeApp)
+        }
+        apiAuditStore = InMemoryApiAuditStore()
+        var controllerReference: AiNodeController? = null
+        openAiRouter = OpenAiRouter(
+            controllerProvider = { checkNotNull(controllerReference) },
+            keyStore = apiKeyStore,
+            modelId = BuiltinModelCatalog.qwen3_0_6b.id,
+            auditStore = apiAuditStore,
+        )
+        socketHttpServer = DefaultSocketHttpServer(openAiRouter)
+        val controller = DefaultAiNodeController(
             moduleRegistry = moduleRegistry,
             moduleId = aiModule.id,
             modelId = BuiltinModelCatalog.qwen3_0_6b.id,
@@ -99,7 +130,10 @@ class OpenDeviceNodeApp : Application() {
                     ?.toLong()
                     ?.times(1_024L)
             },
+            socketHttpServer = socketHttpServer,
         )
+        controllerReference = controller
+        aiNodeController = controller
     }
 
     override fun onTerminate() {

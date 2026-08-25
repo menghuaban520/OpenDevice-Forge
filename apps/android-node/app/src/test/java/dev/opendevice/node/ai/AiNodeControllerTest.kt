@@ -1,5 +1,9 @@
 package dev.opendevice.node.ai
 
+import dev.opendevice.node.api.NetworkMode
+import dev.opendevice.node.api.ServerConfig
+import dev.opendevice.node.api.ServerEndpoint
+import dev.opendevice.node.api.SocketHttpServer
 import dev.opendevice.node.contract.ModuleManifest
 import dev.opendevice.node.device.DeviceFacts
 import dev.opendevice.node.device.DeviceFactsSource
@@ -19,6 +23,7 @@ import dev.opendevice.node.kernel.StartupMarker
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadState
 import java.io.File
+import java.net.InetAddress
 import java.nio.file.Files
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -190,6 +195,23 @@ class AiNodeControllerTest {
     }
 
     @Test
+    fun servingStateUsesBoundSocketAndStopClosesIt() = runTest {
+        val server = FakeSocketHttpServer()
+        val fixture = fixture(scheduler = testScheduler, socketServer = server)
+        fixture.registry.setEnabled(true)
+
+        fixture.controller.start()
+
+        val serving = assertIs<AiNodeState.Serving>(fixture.controller.state.value)
+        assertEquals("127.0.0.1", serving.bindAddress)
+        assertEquals(12_345, serving.port)
+        assertEquals(1, server.startCount)
+
+        fixture.controller.stop()
+        assertEquals(1, server.stopCount)
+    }
+
+    @Test
     fun metricsUseMonotonicTimeAndNeverStoreText() = runTest {
         val clock = SequenceClock(
             0L,
@@ -223,6 +245,7 @@ class AiNodeControllerTest {
         scheduler: TestCoroutineScheduler,
         monotonicNanos: () -> Long = System::nanoTime,
         rssBytes: () -> Long? = { 100L },
+        socketServer: SocketHttpServer? = null,
     ): ControllerFixture {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(scheduler))
         val registry = FakeModuleRegistry(manifest)
@@ -242,6 +265,7 @@ class AiNodeControllerTest {
             applicationScope = scope,
             monotonicNanos = monotonicNanos,
             rssBytes = rssBytes,
+            socketHttpServer = socketServer,
         )
         return ControllerFixture(controller, registry, models, engine, facts, startupGuard)
     }
@@ -354,4 +378,23 @@ private class SequenceClock(vararg values: Long) {
 private class SequenceRss(vararg values: Long) {
     private val iterator = values.iterator()
     fun next(): Long? = if (iterator.hasNext()) iterator.nextLong() else null
+}
+
+private class FakeSocketHttpServer : SocketHttpServer {
+    private val mutableEndpoint = MutableStateFlow<ServerEndpoint?>(null)
+    override val endpoint: StateFlow<ServerEndpoint?> = mutableEndpoint
+    var startCount = 0
+    var stopCount = 0
+
+    override suspend fun start(config: ServerConfig): ServerEndpoint {
+        startCount += 1
+        return ServerEndpoint("127.0.0.1", 12_345, NetworkMode.LOOPBACK).also {
+            mutableEndpoint.value = it
+        }
+    }
+
+    override suspend fun stop() {
+        stopCount += 1
+        mutableEndpoint.value = null
+    }
 }
