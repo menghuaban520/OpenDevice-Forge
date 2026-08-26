@@ -16,13 +16,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.opendevice.node.model.BuiltinModelCatalog
 import dev.opendevice.node.ui.AndroidNodeServiceControl
+import dev.opendevice.node.ui.ModelSetupScreen
 import dev.opendevice.node.ui.NodeApp
 import dev.opendevice.node.ui.NodeAppActions
 import dev.opendevice.node.ui.NodeDestination
 import dev.opendevice.node.ui.NodeViewModel
 import dev.opendevice.node.ui.ServerSocketPortAvailabilityProbe
+import dev.opendevice.node.ui.shouldShowModelSetup
 
 class MainActivity : ComponentActivity() {
     private val nodeApplication: OpenDeviceNodeApp
@@ -38,8 +39,8 @@ class MainActivity : ComponentActivity() {
                     moduleRegistry = app.moduleRegistry,
                     aiModuleId = app.aiModuleId,
                     modelRepository = app.modelDownloadRepository,
-                    modelId = BuiltinModelCatalog.qwen3_0_6b.id,
-                    modelDisplayName = BuiltinModelCatalog.qwen3_0_6b.displayName,
+                    modelId = app.recommendedModel.id,
+                    modelDisplayName = app.recommendedModel.displayName,
                     controller = app.aiNodeController,
                     settingsRepository = app.nodeSettingsRepository,
                     apiKeyStore = app.apiKeyStore,
@@ -63,9 +64,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by nodeViewModel.state.collectAsStateWithLifecycle()
             var destination by rememberSaveable { mutableStateOf(NodeDestination.NODE) }
+            var modelSetupSkipped by rememberSaveable { mutableStateOf(false) }
 
             MaterialTheme {
-                NodeApp(
+                if (shouldShowModelSetup(state.modelState, modelSetupSkipped)) {
+                    ModelSetupScreen(
+                        state = state,
+                        recommendedModel = nodeApplication.recommendedModel,
+                        onDownload = nodeViewModel::downloadModel,
+                        onCancelDownload = nodeViewModel::cancelDownload,
+                        onSkip = { modelSetupSkipped = true },
+                    )
+                } else NodeApp(
                     state = state,
                     destination = destination,
                     actions = NodeAppActions(

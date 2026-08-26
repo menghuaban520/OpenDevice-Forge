@@ -128,21 +128,23 @@ class NodeFlowTest {
     }
 
     @Test
-    fun completePhoneFlowUsesRealFourScreenSurface() {
-        compose.onNodeWithText("OpenDevice Node").assertIsDisplayed()
-        compose.onNodeWithText("启用本地 AI 节点").performClick()
-        waitForText("下载并校验模型")
-
-        compose.onNodeWithText("下载并校验模型").performClick()
+    fun completePhoneFlowUsesFirstSetupAndFiveScreenSurface() {
+        compose.onNodeWithText("为这台手机选择模型").assertIsDisplayed()
+        compose.onNodeWithText("下载推荐模型").performClick()
         waitForText("正在下载 13%")
         modelRepository.ready()
+        waitForText("OpenDevice Node")
+
+        compose.onNodeWithText("启用本地 AI 节点").performClick()
         waitForText("启动节点")
 
         compose.onNodeWithText("启动节点").performClick()
         waitForText("停止节点")
+        navigate("对话")
         compose.onNodeWithText("发给手机模型").performTextInput("你好")
         compose.onNodeWithText("发送").performScrollTo().performClick()
         waitForText("手机回复")
+        navigate("节点")
         compose.onNodeWithText("停止节点").performClick()
         waitForText("启动节点")
 

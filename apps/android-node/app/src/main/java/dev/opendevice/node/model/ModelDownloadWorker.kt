@@ -20,11 +20,11 @@ class ModelDownloadWorker(
 ) : CoroutineWorker(appContext, workerParameters) {
     override suspend fun doWork(): Result = coroutineScope {
         val modelId = inputData.getString(MODEL_ID_INPUT) ?: return@coroutineScope Result.failure()
-        if (modelId != BuiltinModelCatalog.qwen3_0_6b.id) {
-            return@coroutineScope Result.failure()
-        }
         val application = applicationContext as? OpenDeviceNodeApp
             ?: return@coroutineScope Result.failure()
+        if (modelId != application.recommendedModel.id) {
+            return@coroutineScope Result.failure()
+        }
         val repository = application.modelDownloadRepository
         setForeground(foregroundInfo(repository.state.value))
         val progress = launch {

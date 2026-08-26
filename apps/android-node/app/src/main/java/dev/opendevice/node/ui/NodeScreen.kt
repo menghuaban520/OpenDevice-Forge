@@ -1,7 +1,6 @@
 package dev.opendevice.node.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,7 +80,6 @@ fun NodeScreen(
             )
         }
 
-        LocalChatCard(state, actions)
     }
 }
 
@@ -193,89 +190,6 @@ private fun NumberSettingField(
             enabled = enabled && text.toIntOrNull() != value,
         ) {
             Text("保存")
-        }
-    }
-}
-
-@Composable
-private fun LocalChatCard(
-    state: NodeUiState,
-    actions: NodeAppActions,
-) {
-    var input by rememberSaveable { mutableStateOf("") }
-    InfoCard("手机本地聊天") {
-        Text(
-            "这里直接调用同一个节点控制器；电脑请求正在运行时，不会偷偷排第二条队列。",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        if (state.chat.messages.isEmpty()) {
-            Text("还没有对话。节点启动后，可以直接从手机测试模型。")
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.chat.messages.forEachIndexed { index, message ->
-                    if (message.content.isNotEmpty() || index == state.chat.messages.lastIndex) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = if (message.role == "user") {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                            },
-                            shape = MaterialTheme.shapes.medium,
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    if (message.role == "user") "你" else "手机模型",
-                                    modifier = Modifier.fillMaxWidth(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    message.content.ifEmpty { "正在生成…" },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        state.chat.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        OutlinedTextField(
-            value = input,
-            onValueChange = { input = it },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state.nodeState is AiNodeState.Serving && !state.chat.generating,
-            label = { Text("发给手机模型") },
-            minLines = 2,
-            maxLines = 5,
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                onClick = {
-                    actions.sendLocalMessage(input)
-                    input = ""
-                },
-                enabled = input.isNotBlank() &&
-                    state.nodeState is AiNodeState.Serving &&
-                    !state.chat.generating,
-            ) {
-                Text("发送")
-            }
-            if (state.chat.generating) {
-                OutlinedButton(onClick = actions.cancelLocalMessage) { Text("取消生成") }
-            }
         }
     }
 }

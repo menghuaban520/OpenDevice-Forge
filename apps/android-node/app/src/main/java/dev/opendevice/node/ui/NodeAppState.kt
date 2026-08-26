@@ -9,6 +9,7 @@ enum class NodeDestination(
     val shortLabel: String,
 ) {
     NODE("node", "节点", "节"),
+    CHAT("chat", "对话", "聊"),
     MODULES("modules", "模块", "模"),
     CONNECTIONS("connections", "连接", "连"),
     STATUS("status", "状态", "态"),

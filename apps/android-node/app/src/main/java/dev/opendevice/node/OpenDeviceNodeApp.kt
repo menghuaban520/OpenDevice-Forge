@@ -29,6 +29,7 @@ import dev.opendevice.node.model.BuiltinModelCatalog
 import dev.opendevice.node.model.HttpModelByteSource
 import dev.opendevice.node.model.HttpModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadRepository
+import dev.opendevice.node.model.ModelDescriptor
 import dev.opendevice.node.model.WorkManagerModelWorkScheduler
 import dev.opendevice.node.settings.DataStoreNodeSettingsRepository
 import dev.opendevice.node.settings.NodeSettingsRepository
@@ -54,6 +55,9 @@ class OpenDeviceNodeApp : Application() {
         private set
 
     lateinit var deviceFactsSource: DeviceFactsSource
+        private set
+
+    lateinit var recommendedModel: ModelDescriptor
         private set
 
     lateinit var aiNodeController: AiNodeController
@@ -101,8 +105,11 @@ class OpenDeviceNodeApp : Application() {
             }
         }
         val storageManager = getSystemService(StorageManager::class.java)
+        val androidDeviceFactsSource = AndroidDeviceFactsSource(this)
+        deviceFactsSource = androidDeviceFactsSource
+        recommendedModel = BuiltinModelCatalog.recommend(androidDeviceFactsSource.readOnce())
         modelDownloadRepository = HttpModelDownloadRepository(
-            descriptor = BuiltinModelCatalog.qwen3_0_6b,
+            descriptor = recommendedModel,
             modelRoot = noBackupFilesDir.resolve("models"),
             byteSource = HttpModelByteSource(),
             allocatableBytes = {
@@ -119,7 +126,6 @@ class OpenDeviceNodeApp : Application() {
         applicationScope.launch {
             modelDownloadRepository.verifiedModelFile()
         }
-        deviceFactsSource = AndroidDeviceFactsSource(this)
         nodeSettingsRepository = DataStoreNodeSettingsRepository.create(this)
         nodeAddressResolver = AndroidNodeAddressResolver(this)
         val activityManager = getSystemService(ActivityManager::class.java)
@@ -131,15 +137,15 @@ class OpenDeviceNodeApp : Application() {
         openAiRouter = OpenAiRouter(
             controllerProvider = { checkNotNull(controllerReference) },
             keyStore = apiKeyStore,
-            modelId = BuiltinModelCatalog.qwen3_0_6b.id,
+            modelId = recommendedModel.id,
             auditStore = apiAuditStore,
         )
         socketHttpServer = DefaultSocketHttpServer(openAiRouter)
         val controller = DefaultAiNodeController(
             moduleRegistry = moduleRegistry,
             moduleId = aiModule.id,
-            modelId = BuiltinModelCatalog.qwen3_0_6b.id,
-            modelSizeBytes = BuiltinModelCatalog.qwen3_0_6b.sizeBytes,
+            modelId = recommendedModel.id,
+            modelSizeBytes = recommendedModel.sizeBytes,
             modelRepository = modelDownloadRepository,
             inferenceEngine = LlamaCppInferenceEngine(),
             deviceFactsSource = deviceFactsSource,

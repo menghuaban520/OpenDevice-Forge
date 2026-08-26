@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -27,6 +29,7 @@ fun ConnectionsScreen(
     state: NodeUiState,
     actions: NodeAppActions,
 ) {
+    val clipboard = LocalClipboardManager.current
     var clientLabel by rememberSaveable { mutableStateOf("") }
     var portText by remember(state.settings.port) {
         mutableStateOf(state.settings.port.toString())
@@ -37,6 +40,7 @@ fun ConnectionsScreen(
         } else {
             "127.0.0.1:${state.settings.port}"
         }
+    val openAiBaseUrl = state.openAiBaseUrl()
 
     ScreenColumn(modifier = Modifier.verticalScroll(rememberScrollState())) {
         ScreenTitle(
@@ -52,6 +56,25 @@ fun ConnectionsScreen(
                 if (state.settings.lanEnabled) "当前 Wi-Fi 局域网" else "仅本机 / USB 转发",
             )
             SelectableMonospaceText(displayedEndpoint)
+            Text("OpenAI base_url", style = MaterialTheme.typography.labelLarge)
+            if (openAiBaseUrl == null) {
+                Text(
+                    "启动节点后显示当前 Wi-Fi 调用地址",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                SelectableMonospaceText(openAiBaseUrl)
+                OutlinedButton(
+                    onClick = { clipboard.setText(AnnotatedString(openAiBaseUrl)) },
+                ) {
+                    Text("复制调用地址")
+                }
+            }
+            Text(
+                "客户端使用 Authorization: Bearer <手机创建的密钥>",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = portText,
                 onValueChange = { next -> portText = next.filter(Char::isDigit).take(5) },
@@ -160,3 +183,7 @@ fun ConnectionsScreen(
         }
     }
 }
+
+internal fun NodeUiState.openAiBaseUrl(): String? = endpoint
+    ?.let { "http://${it.address}:${it.port}/v1" }
+    ?: if (settings.lanEnabled) null else "http://127.0.0.1:${settings.port}/v1"

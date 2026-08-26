@@ -5,9 +5,9 @@ import kotlin.test.assertEquals
 
 class NodeAppStateTest {
     @Test
-    fun allFourDestinationsAreStable() {
+    fun allFiveDestinationsAreStable() {
         assertEquals(
-            listOf("node", "modules", "connections", "status"),
+            listOf("node", "chat", "modules", "connections", "status"),
             NodeDestination.entries.map(NodeDestination::route),
         )
     }

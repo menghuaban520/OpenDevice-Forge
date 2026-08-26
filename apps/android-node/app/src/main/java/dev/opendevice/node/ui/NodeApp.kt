@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
@@ -80,6 +81,7 @@ fun NodeApp(
                             Icon(
                                 imageVector = when (item) {
                                     NodeDestination.NODE -> Icons.Outlined.Home
+                                    NodeDestination.CHAT -> Icons.Outlined.Email
                                     NodeDestination.MODULES -> Icons.Outlined.Settings
                                     NodeDestination.CONNECTIONS -> Icons.Outlined.Share
                                     NodeDestination.STATUS -> Icons.Outlined.Info
@@ -102,6 +104,7 @@ fun NodeApp(
         ) {
             when (destination) {
                 NodeDestination.NODE -> NodeScreen(state, actions)
+                NodeDestination.CHAT -> ChatScreen(state, actions)
                 NodeDestination.MODULES -> ModulesScreen(state, actions)
                 NodeDestination.CONNECTIONS -> ConnectionsScreen(state, actions)
                 NodeDestination.STATUS -> StatusScreen(state, actions)
