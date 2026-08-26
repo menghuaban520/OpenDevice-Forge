@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -183,35 +184,37 @@ class DefaultAiNodeController(
                 generationStarted = true
             }
 
-            inferenceEngine.generate(messages, options).collect { chunk ->
-                outputTokens += chunk.tokenCount.toLong()
-                if (!firstTokenSeen && chunk.text.isNotEmpty()) {
-                    firstTokenSeen = true
-                    val latency = nanosToMillis(monotonicNanos() - generationStartNanos)
-                    mutableMetrics.value = mutableMetrics.value.copy(firstTokenMillis = latency)
+            inferenceEngine.generate(messages, options)
+                .catch { error ->
+                    if (error is CancellationException) throw error
+                    lifecycleMutex.withLock {
+                        val current = mutableState.value
+                        if (current is AiNodeState.Busy && current.requestId == requestId) {
+                            mutableState.value = AiNodeState.Failed(
+                                error.message ?: "generation_failed",
+                            )
+                            runCatching { socketHttpServer?.stop() }
+                            runCatching { inferenceEngine.unload() }
+                            startupGuard.markCleanStop(moduleId)
+                        }
+                    }
+                    throw error
                 }
-                samplePeakRss()
-                emit(chunk)
-            }
+                .collect { chunk ->
+                    outputTokens += chunk.tokenCount.toLong()
+                    if (!firstTokenSeen && chunk.text.isNotEmpty()) {
+                        firstTokenSeen = true
+                        val latency = nanosToMillis(monotonicNanos() - generationStartNanos)
+                        mutableMetrics.value = mutableMetrics.value.copy(firstTokenMillis = latency)
+                    }
+                    samplePeakRss()
+                    emit(chunk)
+                }
 
             val elapsedNanos = (monotonicNanos() - generationStartNanos).coerceAtLeast(1L)
             mutableMetrics.value = mutableMetrics.value.copy(
                 outputTokensPerSecond = outputTokens.toDouble() * NANOS_PER_SECOND / elapsedNanos,
             )
-        } catch (error: Exception) {
-            if (error is CancellationException) throw error
-            lifecycleMutex.withLock {
-                val current = mutableState.value
-                if (current is AiNodeState.Busy && current.requestId == requestId) {
-                    mutableState.value = AiNodeState.Failed(
-                        error.message ?: "generation_failed",
-                    )
-                    runCatching { socketHttpServer?.stop() }
-                    runCatching { inferenceEngine.unload() }
-                    startupGuard.markCleanStop(moduleId)
-                }
-            }
-            throw error
         } finally {
             lifecycleMutex.withLock {
                 activeGenerationJob = null

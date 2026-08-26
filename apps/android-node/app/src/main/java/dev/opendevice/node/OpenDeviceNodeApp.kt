@@ -39,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 
@@ -115,6 +116,9 @@ class OpenDeviceNodeApp : Application() {
             },
             workScheduler = WorkManagerModelWorkScheduler(WorkManager.getInstance(this)),
         )
+        applicationScope.launch {
+            modelDownloadRepository.verifiedModelFile()
+        }
         deviceFactsSource = AndroidDeviceFactsSource(this)
         nodeSettingsRepository = DataStoreNodeSettingsRepository.create(this)
         nodeAddressResolver = AndroidNodeAddressResolver(this)

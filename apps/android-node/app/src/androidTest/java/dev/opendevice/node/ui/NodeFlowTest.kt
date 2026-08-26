@@ -7,14 +7,14 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.opendevice.node.MainActivity
@@ -51,30 +51,43 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
-import org.junit.After
 import org.junit.Before
 import org.junit.Rule
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
+import org.junit.runner.Description
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
 
 @RunWith(AndroidJUnit4::class)
 class NodeFlowTest {
-    @get:Rule
-    val compose = createEmptyComposeRule()
+    private val compose = createAndroidComposeRule<MainActivity>()
 
-    private lateinit var scenario: ActivityScenario<MainActivity>
     private lateinit var modelRepository: FlowModelRepository
 
-    @Before
-    fun setUp() {
+    @get:Rule
+    val rules: RuleChain = RuleChain
+        .outerRule(viewModelOverrideRule())
+        .around(compose)
+
+    private fun viewModelOverrideRule(): TestRule = TestRule { base, _: Description ->
+        object : Statement() {
+            override fun evaluate() {
+                installViewModelOverride()
+                try {
+                    base.evaluate()
+                } finally {
+                    MainActivity.viewModelFactoryOverride = null
+                    if (::modelRepository.isInitialized) modelRepository.file.delete()
+                }
+            }
+        }
+    }
+
+    private fun installViewModelOverride() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            instrumentation.uiAutomation.grantRuntimePermission(
-                context.packageName,
-                Manifest.permission.POST_NOTIFICATIONS,
-            )
-        }
         val manifest = BuiltinModules.aiNode(context)
         val registry = FlowModuleRegistry(manifest)
         modelRepository = FlowModelRepository(context.cacheDir.resolve("node-flow.gguf"))
@@ -101,14 +114,17 @@ class NodeFlowTest {
             requestIdGenerator = { "local-ui-test" },
         )
         MainActivity.viewModelFactoryOverride = SingleViewModelFactory(viewModel)
-        scenario = ActivityScenario.launch(MainActivity::class.java)
     }
 
-    @After
-    fun tearDown() {
-        if (::scenario.isInitialized) scenario.close()
-        MainActivity.viewModelFactoryOverride = null
-        if (::modelRepository.isInitialized) modelRepository.file.delete()
+    @Before
+    fun grantNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            instrumentation.uiAutomation.grantRuntimePermission(
+                instrumentation.targetContext.packageName,
+                Manifest.permission.POST_NOTIFICATIONS,
+            )
+        }
     }
 
     @Test
@@ -125,7 +141,7 @@ class NodeFlowTest {
         compose.onNodeWithText("启动节点").performClick()
         waitForText("停止节点")
         compose.onNodeWithText("发给手机模型").performTextInput("你好")
-        compose.onNodeWithText("发送").performClick()
+        compose.onNodeWithText("发送").performScrollTo().performClick()
         waitForText("手机回复")
         compose.onNodeWithText("停止节点").performClick()
         waitForText("启动节点")

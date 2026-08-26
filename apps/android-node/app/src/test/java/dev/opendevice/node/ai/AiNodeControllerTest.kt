@@ -23,6 +23,7 @@ import dev.opendevice.node.kernel.StartupMarker
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadState
 import java.io.File
+import java.io.IOException
 import java.net.BindException
 import java.net.InetAddress
 import java.nio.file.Files
@@ -34,6 +35,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceTimeBy
@@ -95,6 +97,37 @@ class AiNodeControllerTest {
         first.await()
         assertIs<AiNodeState.Serving>(fixture.controller.state.value)
         Unit
+    }
+
+    @Test
+    fun clientWriteFailureDoesNotFailOrUnloadTheNode() = runTest {
+        val fixture = fixture(scheduler = testScheduler)
+        fixture.registry.setEnabled(true)
+        assertEquals(StartResult.Started, fixture.controller.start())
+
+        assertFailsWith<IOException> {
+            fixture.controller.chat("disconnected", messages, options).collect {
+                throw IOException("Broken pipe")
+            }
+        }
+
+        assertIs<AiNodeState.Serving>(fixture.controller.state.value)
+        assertEquals(0, fixture.engine.unloadCount)
+    }
+
+    @Test
+    fun inferenceFailureStillFailsAndUnloadsTheNode() = runTest {
+        val fixture = fixture(scheduler = testScheduler)
+        fixture.registry.setEnabled(true)
+        fixture.engine.generationFailure = IllegalStateException("engine_failed")
+        assertEquals(StartResult.Started, fixture.controller.start())
+
+        assertFailsWith<IllegalStateException> {
+            fixture.controller.chat("failed", messages, options).toList()
+        }
+
+        assertEquals(AiNodeState.Failed("engine_failed"), fixture.controller.state.value)
+        assertEquals(1, fixture.engine.unloadCount)
     }
 
     @Test
@@ -358,6 +391,7 @@ private class GateInferenceEngine : InferenceEngine {
     var loadCount = 0
     var unloadCount = 0
     var autoFinish = false
+    var generationFailure: Exception? = null
     var generationStarted = CompletableDeferred<Unit>()
     var finishGeneration = CompletableDeferred<Unit>()
 
@@ -372,6 +406,7 @@ private class GateInferenceEngine : InferenceEngine {
     ): Flow<GenerationChunk> = flow {
         mutable.value = InferenceState.Generating
         generationStarted.complete(Unit)
+        generationFailure?.let { throw it }
         emit(GenerationChunk("private response", tokenCount = 1, finished = false))
         if (!autoFinish) finishGeneration.await()
         emit(GenerationChunk("", tokenCount = 1, promptTokenCount = 3, finished = true))

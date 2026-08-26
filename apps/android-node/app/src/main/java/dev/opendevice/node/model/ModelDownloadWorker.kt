@@ -65,7 +65,8 @@ class ModelDownloadWorker(
             .setContentTitle("OpenDevice 模型下载")
             .setContentText(notificationText(state))
             .setOngoing(
-                state is ModelDownloadState.Downloading ||
+                state is ModelDownloadState.Queued ||
+                    state is ModelDownloadState.Downloading ||
                     state is ModelDownloadState.Verifying,
             )
             .setOnlyAlertOnce(true)
@@ -96,6 +97,7 @@ class ModelDownloadWorker(
     }
 
     private fun notificationText(state: ModelDownloadState): String = when (state) {
+        ModelDownloadState.Queued -> "等待系统开始下载"
         is ModelDownloadState.Downloading ->
             "${state.downloadedBytes} / ${state.totalBytes} 字节"
         is ModelDownloadState.Verifying -> "正在校验大小和 SHA-256"

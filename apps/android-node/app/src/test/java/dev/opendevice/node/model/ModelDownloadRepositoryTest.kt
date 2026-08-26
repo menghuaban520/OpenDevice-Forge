@@ -149,6 +149,22 @@ class ModelDownloadRepositoryTest {
     }
 
     @Test
+    fun enqueueImmediatelyReportsThatWorkIsQueued() {
+        val bytes = modelBytes(1_024)
+        val scheduler = RecordingModelWorkScheduler()
+        val repository = repository(
+            source = FakeRangeSource(bytes),
+            descriptor = descriptor(bytes),
+            workScheduler = scheduler,
+        )
+
+        repository.enqueue()
+
+        assertIs<ModelDownloadState.Queued>(repository.state.value)
+        assertEquals(listOf("test-model"), scheduler.enqueuedModelIds)
+    }
+
+    @Test
     fun exactValidFinalFileSkipsNetworkAccess() = runBlocking {
         val bytes = modelBytes(1_024)
         val source = FakeRangeSource(bytes)
@@ -163,6 +179,24 @@ class ModelDownloadRepositoryTest {
         assertEquals(0, source.openCount)
         assertEquals(finalFile(), repository.verifiedModelFile())
         assertIs<ModelDownloadState.Ready>(repository.state.value)
+        Unit
+    }
+
+    @Test
+    fun verifiedModelFileRestoresReadyStateAfterProcessRestart() = runBlocking {
+        val bytes = modelBytes(1_024)
+        val source = FakeRangeSource(bytes)
+        finalFile().apply {
+            parentFile?.mkdirs()
+            writeBytes(bytes)
+        }
+        val restartedRepository = repository(source, descriptor(bytes))
+
+        assertIs<ModelDownloadState.Missing>(restartedRepository.state.value)
+        assertEquals(finalFile(), restartedRepository.verifiedModelFile())
+
+        assertEquals(0, source.openCount)
+        assertIs<ModelDownloadState.Ready>(restartedRepository.state.value)
         Unit
     }
 
@@ -246,12 +280,13 @@ class ModelDownloadRepositoryTest {
         source: ModelByteSource,
         descriptor: ModelDescriptor,
         allocatableBytes: suspend () -> Long = { Long.MAX_VALUE },
+        workScheduler: ModelWorkScheduler = NoOpModelWorkScheduler,
     ) = HttpModelDownloadRepository(
         descriptor = descriptor,
         modelRoot = root,
         byteSource = source,
         allocatableBytes = allocatableBytes,
-        workScheduler = NoOpModelWorkScheduler,
+        workScheduler = workScheduler,
     )
 
     private fun descriptor(bytes: ByteArray) = ModelDescriptor(
@@ -270,6 +305,16 @@ class ModelDownloadRepositoryTest {
     private fun finalFile() = modelDirectory().resolve("model.gguf")
 
     private fun partFile() = modelDirectory().resolve("model.gguf.part")
+}
+
+private class RecordingModelWorkScheduler : ModelWorkScheduler {
+    val enqueuedModelIds = mutableListOf<String>()
+
+    override fun enqueue(modelId: String) {
+        enqueuedModelIds += modelId
+    }
+
+    override fun cancel(modelId: String) = Unit
 }
 
 private class FakeRangeSource(

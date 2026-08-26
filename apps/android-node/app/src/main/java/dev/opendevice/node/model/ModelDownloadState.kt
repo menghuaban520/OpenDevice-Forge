@@ -5,6 +5,8 @@ import java.io.File
 sealed interface ModelDownloadState {
     data object Missing : ModelDownloadState
 
+    data object Queued : ModelDownloadState
+
     data class Downloading(
         val downloadedBytes: Long,
         val totalBytes: Long,

@@ -95,7 +95,8 @@ private fun PrimaryNodeAction(
         state.aiModule?.enabled != true -> {
             Button(onClick = actions.enableAiModule) { Text("启用本地 AI 节点") }
         }
-        state.modelState is ModelDownloadState.Downloading -> {
+        state.modelState is ModelDownloadState.Queued ||
+            state.modelState is ModelDownloadState.Downloading -> {
             OutlinedButton(onClick = actions.cancelDownload) { Text("取消下载") }
         }
         state.modelState !is ModelDownloadState.Ready -> {
@@ -117,6 +118,14 @@ private fun ModelStateContent(
 ) {
     when (modelState) {
         ModelDownloadState.Missing -> KeyValueRow("状态", "尚未下载")
+        ModelDownloadState.Queued -> {
+            KeyValueRow("状态", "等待系统开始下载")
+            Text(
+                "任务已提交；部分手机会稍后启动后台下载。",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
         is ModelDownloadState.Downloading -> {
             val progress = if (modelState.totalBytes > 0L) {
                 modelState.downloadedBytes.toFloat() / modelState.totalBytes.toFloat()

@@ -42,6 +42,7 @@ class HttpModelDownloadRepository(
 
     override fun enqueue() {
         cancelRequested.set(false)
+        mutableState.value = ModelDownloadState.Queued
         workScheduler.enqueue(descriptor.id)
     }
 

@@ -106,6 +106,7 @@ fun StatusScreen(
 
 private fun ModelDownloadState.statusLabel(): String = when (this) {
     ModelDownloadState.Missing -> "尚未下载"
+    ModelDownloadState.Queued -> "等待系统下载"
     is ModelDownloadState.Downloading -> "正在下载"
     is ModelDownloadState.Verifying -> "正在校验"
     is ModelDownloadState.Ready -> "已校验"
