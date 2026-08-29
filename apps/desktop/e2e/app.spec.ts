@@ -15,9 +15,9 @@ test("device-first desktop workflow and accepted surfaces", async ({ page }) => 
   await expect(page.getByText("电脑尚未安装 ADB").first()).toBeVisible();
   await page.screenshot({ path: resolve(screenshotDirectory, "desktop-overview.png") });
 
-  await page.getByRole("button", { name: "插件市场", exact: true }).click();
-  await expect(page.getByText("OpenDevice Forge 官方目录")).toBeVisible();
-  await page.screenshot({ path: resolve(screenshotDirectory, "plugin-market.png") });
+  await page.getByRole("button", { name: "模块", exact: true }).click();
+  await expect(page.getByText("随应用提供 · 本地清单")).toBeVisible();
+  await page.screenshot({ path: resolve(screenshotDirectory, "module-center.png") });
 
   await page.getByRole("button", { name: "安装设备体检" }).click();
   const inspectionToggle = page.getByRole("switch", { name: "启用设备体检" });
@@ -31,12 +31,11 @@ test("device-first desktop workflow and accepted surfaces", async ({ page }) => 
   await expect(page.getByRole("button", { name: "运行设备体检" })).toBeDisabled();
   await page.screenshot({ path: resolve(screenshotDirectory, "device-inspection-workbench.png") });
 
-  await page.getByRole("button", { name: "返回插件市场" }).click();
-  await page.getByRole("button", { name: "AI 节点 插件" }).click();
-  await expect(page.getByText("尚未接入运行器")).toBeVisible();
+  await page.getByRole("button", { name: "返回模块中心" }).click();
+  await expect(page.getByRole("button", { name: "AI 节点 模块" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "安装 AI 节点" })).toHaveCount(0);
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: resolve(screenshotDirectory, "plugin-market-1280x800.png") });
+  await page.screenshot({ path: resolve(screenshotDirectory, "module-center-1280x800.png") });
 });

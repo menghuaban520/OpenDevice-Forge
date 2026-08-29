@@ -19,7 +19,7 @@ interface AppShellProps {
 
 const navItems: Array<{ page: "overview" | "plugins"; label: string; icon: typeof Home }> = [
   { page: "overview", label: "设备", icon: Home },
-  { page: "plugins", label: "插件市场", icon: PlugZap },
+  { page: "plugins", label: "模块", icon: PlugZap },
 ];
 
 const clean = (value: string | null) => value?.trim() || null;

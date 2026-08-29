@@ -144,17 +144,18 @@ class NodeFlowTest {
     fun performanceDisplayCanBeHiddenWhileSafetySettingsStayLocked() {
         modelRepository.ready()
         moduleAction("dev.opendevice.module.ai-node", "open")
-        waitForText("OpenDevice Node")
+        waitForText("本地 AI 节点")
         compose.onNodeWithText("启用本地 AI 节点").performClick()
-        compose.onNodeWithText("性能").performScrollTo().performClick()
-        compose.onNodeWithText("隐藏性能读数").performScrollTo().performClick()
         compose.onNodeWithText("电池温度").assertDoesNotExist()
+        compose.onNodeWithText("性能").performScrollTo().performClick()
         compose.onNodeWithText("温度上限（38–43°C）").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("启动节点").performScrollTo().performClick()
         waitForText("停止节点")
         compose.onNodeWithText("性能").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("显示性能读数").performScrollTo().performClick()
+        compose.onNodeWithText("显示实时读数（可选）").performScrollTo().performClick()
         compose.onNodeWithText("本应用 CPU").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("隐藏实时读数").performScrollTo().performClick()
+        compose.onNodeWithText("电池温度").assertDoesNotExist()
         compose.onNodeWithText("停止节点").performScrollTo().performClick()
     }
 
@@ -166,7 +167,7 @@ class NodeFlowTest {
         compose.onNodeWithText("下载推荐模型").performClick()
         waitForText("正在下载 13%")
         modelRepository.ready()
-        waitForText("OpenDevice Node")
+        waitForText("本地 AI 节点")
 
         compose.onNodeWithText("启用本地 AI 节点").performClick()
         waitForText("启动节点")
@@ -182,7 +183,7 @@ class NodeFlowTest {
         waitForText("启动节点")
 
         navigate("模块")
-        compose.onNodeWithText("尚未提供在线模块市场").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("在线模块目录尚未开放").performScrollTo().assertIsDisplayed()
 
         navigate("连接")
         compose.onNodeWithText("临时开启局域网").performScrollTo().performClick()
@@ -253,7 +254,7 @@ class NodeFlowTest {
         compose.onNode(hasText(label) and hasClickAction()).performClick()
         waitForText(
             when (label) {
-                "节点" -> "OpenDevice Node"
+                "节点" -> "本地 AI 节点"
                 "设备" -> "设备信息"
                 else -> label
             },

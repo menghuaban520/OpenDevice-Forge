@@ -2,13 +2,13 @@
 
 OpenDevice Forge is a device-first module platform for desktop and Android. Each host manages modules compatible with its own runtime. Phone-local LLM inference and remote API access are one optional module, not the product shell.
 
-The current build includes the desktop plugin workbench and an Android module host with read-only device information and a bounded local AI module. The phone opens on Modules without requiring a model download. Package v1 now has complete-manifest P-256 verification, explicit publisher trust, permission review planning, and private versioned stores on both hosts. Android uses atomic directory/pointer moves verified on API 29; desktop uses atomic version publication plus an append-only, last-valid pointer journal verified on macOS. Network acquisition and registry activation remain release gates; bundled Android runtime code still ships inside the APK.
+The current build includes the desktop module workbench and an Android module host with read-only device information and a bounded local AI module. The phone opens on Modules without requiring a model download. Package v1 now has complete-manifest P-256 verification, explicit publisher trust, permission review planning, and private versioned stores on both hosts. Android uses atomic directory/pointer moves verified on API 29; desktop uses atomic version publication plus an append-only, last-valid pointer journal verified on macOS. Network acquisition and registry activation remain release gates; bundled Android runtime code still ships inside the APK.
 
-See [module-host candidate verification](docs/verification/android-module-host.md): local tests/build, installed APK provenance, cross-host package signatures, current-phone UI, native inference, module persistence and AI service start/stop all pass. Online acquisition and public release remain separate gates.
+See [module-host candidate verification](docs/verification/android-module-host.md) for local tests/build, installed APK provenance, cross-host package signatures, prior version-bound phone evidence, native inference, module persistence and AI service start/stop. The latest UI build must receive a new phone hash and regression run before those earlier device results can be carried forward. Online acquisition and public release remain separate gates.
 
 ## Safety boundary
 
-The desktop/plugin kernel does **not** unlock bootloaders, obtain Root, silently install APKs, modify identifiers, bypass locks, extract personal files, or execute arbitrary shell commands. The Android companion is a separately installed, visible application; community packages are parsed as declarative manifests only.
+The desktop/module kernel does **not** unlock bootloaders, obtain Root, silently install APKs, modify identifiers, bypass locks, extract personal files, or execute arbitrary shell commands. The Android companion is a separately installed, visible application; community packages are parsed as declarative manifests only.
 
 ## Workspace
 
@@ -48,14 +48,14 @@ JAVA_HOME=/path/to/jdk-17 ANDROID_HOME=/path/to/android-sdk \
   :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
 ```
 
-The native build is unsigned unless platform signing credentials are supplied deliberately. Pushing a version-matched `v*` tag after a remote repository exists triggers macOS, Windows and Android arm64 draft artifacts plus SHA-256 files; the Android artifact uses debug signing. The workflow does not publish the product site.
+The native build is unsigned unless platform signing credentials are supplied deliberately. Pushing a version-matched `v*` tag after the reviewed source exists on the remote triggers macOS, Windows and Android arm64 draft artifacts plus SHA-256 files; the Android artifact uses debug signing. The workflow does not publish the product site.
 
-No remote repository, public deployment, signed package, or real-device compatibility claim is included by default.
+No source commit has been pushed to the current public repository. No public deployment, signed package, or current-build real-device compatibility claim is included by default.
 
 See [the 0.1.0 preview notes](docs/release/0.1.0-preview.md), [contribution guide](CONTRIBUTING.md), and [security policy](SECURITY.md) before publishing or distributing artifacts.
 
 ## Android performance controls
 
-On the phone, Modules → 本地 AI 节点 → 打开 → 性能与保护 offers workload presets and custom 2–4 threads, 1–512 output tokens, a 38–43°C battery ceiling, and a 15–120-second load/generation deadline. Performance readings can be hidden without disabling protection. These are app-level limits, not CPU clock controls or a hardware safety guarantee; system thermal and charging protections remain intact.
+On the phone, Modules → 本地 AI 节点 → 打开 → 性能与保护 offers workload presets and custom 2–4 threads, 1–512 output tokens, a 38–43°C battery ceiling, and a 15–120-second load/generation deadline. Temperature and CPU readings are hidden by default and can be shown without changing protection. These are app-level limits, not CPU clock controls or a hardware safety guarantee; system thermal and charging protections remain intact.
 
 See the [version-bound CDL-AN50 verification](docs/verification/android-node-cdl-an50.md) for measured short-run performance, installed APK hashes, test results and unverified background/long-duration boundaries.

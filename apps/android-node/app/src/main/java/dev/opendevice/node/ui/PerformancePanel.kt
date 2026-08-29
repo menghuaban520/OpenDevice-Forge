@@ -9,10 +9,10 @@ import java.util.Locale
 @Composable
 internal fun PerformancePanel(state: NodeUiState, actions: NodeAppActions) {
     TextButton(onClick = { actions.setShowPerformance(!state.settings.showPerformance) }) {
-        Text(if (state.settings.showPerformance) "隐藏性能读数" else "显示性能读数")
+        Text(if (state.settings.showPerformance) "隐藏实时读数" else "显示实时读数（可选）")
     }
     if (!state.settings.showPerformance) {
-        Text("读数已隐藏，温度与超时保护仍启用。", style = MaterialTheme.typography.bodySmall)
+        Text("温度和 CPU 默认隐藏，保护仍在后台生效。", style = MaterialTheme.typography.bodySmall)
         return
     }
     InfoCard("性能读数") {

@@ -80,10 +80,10 @@ export function DeviceOverview({
         <section className="panel plugin-entry-panel">
           <PackageSearch />
           <div>
-            <h2>用插件继续</h2>
-            <p>检测、实验和本机服务都从插件市场安装，再进入独立工作台运行。</p>
+            <h2>选择模块继续</h2>
+            <p>当前只显示随应用提供、且已经接入运行器的模块；在线目录不会伪装成可用。</p>
           </div>
-          <button className="primary-button" type="button" onClick={onNavigatePlugins}>浏览插件市场</button>
+          <button className="primary-button" type="button" onClick={onNavigatePlugins}>打开模块中心</button>
         </section>
       </div>
     </div>

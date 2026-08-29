@@ -40,8 +40,8 @@ const createConnectedClient = () => {
 const installEnableAndOpenInspection = async (
   user: ReturnType<typeof userEvent.setup>,
 ) => {
-  await user.click(screen.getByRole("button", { name: "插件市场" }));
-  await user.click(screen.getByRole("button", { name: "设备体检 插件" }));
+  await user.click(screen.getByRole("button", { name: "模块" }));
+  await user.click(screen.getByRole("button", { name: "设备体检 模块" }));
   await user.click(screen.getByRole("button", { name: "安装设备体检" }));
   const toggle = screen.getByRole("switch", { name: "启用设备体检" });
   expect(toggle).not.toBeChecked();
@@ -86,32 +86,29 @@ describe("Plugin Market", () => {
     first.unmount();
 
     render(<App deviceClient={client} />);
-    await user.click(screen.getByRole("button", { name: "插件市场" }));
+    await user.click(screen.getByRole("button", { name: "模块" }));
     await user.click(screen.getByRole("tab", { name: "已安装" }));
-    await user.click(screen.getByRole("button", { name: "设备体检 插件" }));
+    await user.click(screen.getByRole("button", { name: "设备体检 模块" }));
     expect(screen.getByRole("switch", { name: "启用设备体检" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "打开设备体检" }));
     await user.click(screen.getByRole("tab", { name: "配置" }));
     expect(screen.getByRole("checkbox", { name: /电源状态/ })).not.toBeChecked();
   });
 
-  it("keeps catalog ideas without a runtime visibly unavailable", async () => {
+  it("hides catalog ideas until they have a working runtime", async () => {
     const user = userEvent.setup();
     const { client } = createConnectedClient();
     render(<App deviceClient={client} />);
-    await user.click(screen.getByRole("button", { name: "插件市场" }));
-    await user.click(screen.getByRole("button", { name: /AI 节点/ }));
-
-    expect(screen.getByText("尚未接入运行器")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "安装 AI 节点" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "打开 AI 节点" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "模块" }));
+    expect(screen.queryByRole("button", { name: "AI 节点 模块" })).not.toBeInTheDocument();
+    expect(screen.queryByText("尚未接入运行器")).not.toBeInTheDocument();
   });
 
   it("removes decorative market and layout controls with no implemented behavior", async () => {
     const user = userEvent.setup();
     const { client } = createConnectedClient();
     render(<App deviceClient={client} />);
-    await user.click(screen.getByRole("button", { name: "插件市场" }));
+    await user.click(screen.getByRole("button", { name: "模块" }));
 
     expect(screen.queryByRole("button", { name: "后退" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "前进" })).not.toBeInTheDocument();

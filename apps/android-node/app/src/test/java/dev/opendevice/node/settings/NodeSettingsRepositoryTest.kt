@@ -1,11 +1,60 @@
 package dev.opendevice.node.settings
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import java.nio.file.Files
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class NodeSettingsRepositoryTest {
+    @Test
+    fun existingInstallHidesPerformanceOnceWithoutResettingOtherSettings() = runBlocking {
+        val directory = Files.createTempDirectory("opendevice-node-settings").toFile()
+        val file = directory.resolve("settings.preferences_pb")
+        val firstJob = SupervisorJob()
+        val firstStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(firstJob + Dispatchers.IO),
+            produceFile = { file },
+        )
+        try {
+            firstStore.edit { preferences ->
+                preferences[stringPreferencesKey("node_settings_v1")] = Json.encodeToString(
+                    NodeSettings.serializer(),
+                    NodeSettings(threads = 4, showPerformance = true),
+                )
+            }
+            val migrated = DataStoreNodeSettingsRepository.create(firstStore)
+            assertEquals(4, migrated.settings.value.threads)
+            assertEquals(false, migrated.settings.value.showPerformance)
+            migrated.setShowPerformance(true)
+        } finally {
+            firstJob.cancelAndJoin()
+        }
+
+        val secondJob = SupervisorJob()
+        val secondStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(secondJob + Dispatchers.IO),
+            produceFile = { file },
+        )
+        try {
+            val reopened = DataStoreNodeSettingsRepository.create(secondStore)
+            assertEquals(4, reopened.settings.value.threads)
+            assertEquals(true, reopened.settings.value.showPerformance)
+        } finally {
+            secondJob.cancelAndJoin()
+            directory.deleteRecursively()
+        }
+    }
+
     @Test
     fun performanceLimitsAreBoundedAndDisplayCanChangeWhileServing() = runTest {
         val repo = InMemoryNodeSettingsRepository()

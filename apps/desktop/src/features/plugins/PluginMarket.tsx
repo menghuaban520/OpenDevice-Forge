@@ -32,7 +32,7 @@ const iconFor = (id: string) => {
 };
 
 const listSource = (manifest: PluginManifest) =>
-  manifest.source.kind === "official" ? "官方" : manifest.source.kind === "github" ? "GitHub" : manifest.source.kind === "community" ? "社区" : "本地";
+  manifest.source.kind === "official" ? "内置" : manifest.source.kind === "github" ? "GitHub" : manifest.source.kind === "community" ? "社区" : "本地";
 
 export function PluginMarket({
   catalog,
@@ -42,7 +42,9 @@ export function PluginMarket({
   onOpen,
   onToggleSafeMode,
 }: PluginMarketProps) {
-  const visibleCatalog = catalog.filter((manifest) => !manifest.protected);
+  const visibleCatalog = catalog.filter((manifest) =>
+    !manifest.protected && (isRunnable(manifest) || Boolean(registry.plugins[manifest.id]))
+  );
   const [selectedId, setSelectedId] = useState(
     visibleCatalog.find((manifest) => manifest.id.includes("device-inspection"))?.id ?? visibleCatalog[0]?.id ?? "",
   );
@@ -64,15 +66,15 @@ export function PluginMarket({
   return (
     <div className="page plugin-market-page">
       <div className="page-toolbar market-toolbar">
-        <div className="market-heading"><strong>插件市场</strong><span>安装后启用，再进入独立工作台</span></div>
-        <label className="search-box wide"><Search size={17} /><span className="sr-only">搜索插件</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索插件或 GitHub 仓库" /></label>
+        <div className="market-heading"><strong>模块中心</strong><span>当前目录来自应用内置清单</span></div>
+        <label className="search-box wide"><Search size={17} /><span className="sr-only">搜索模块</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索内置模块" /></label>
       </div>
 
       <section className="catalog-pane">
         <div className="catalog-tabs" role="tablist">
           {[
             ["installed", "已安装"],
-            ["discover", "插件市场"],
+            ["discover", "内置模块"],
           ].map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} type="button" onClick={() => setTab(id as typeof tab)}>{label}</button>)}
         </div>
         <div className="catalog-list">
@@ -83,7 +85,7 @@ export function PluginMarket({
               <button
                 type="button"
                 key={manifest.id}
-                aria-label={`${manifest.name} 插件`}
+                aria-label={`${manifest.name} 模块`}
                 className={selected.id === manifest.id ? "plugin-list-item selected" : "plugin-list-item"}
                 onClick={() => setSelectedId(manifest.id)}
               >
@@ -93,7 +95,7 @@ export function PluginMarket({
               </button>
             );
           })}
-          {filtered.length === 0 ? <div className="catalog-empty">还没有安装插件，从插件市场选择一个开始。</div> : null}
+          {filtered.length === 0 ? <div className="catalog-empty">这里没有匹配的内置模块。</div> : null}
         </div>
         <button type="button" className="market-safe-mode" onClick={onToggleSafeMode}>
           {registry.safeMode ? "退出故障恢复模式" : "进入故障恢复模式"}

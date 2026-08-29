@@ -37,8 +37,8 @@ fun NodeScreen(
         modifier = Modifier.verticalScroll(rememberScrollState()),
     ) {
         ScreenTitle(
-            title = "OpenDevice Node",
-            subtitle = "在手机上明确启用、下载和启动；远程请求与本地聊天共用同一个模型。",
+            title = "本地 AI 节点",
+            subtitle = "手机模型是一个可选模块，也可以被电脑远程调用。",
         )
         if (state.modules.safeMode) SafeModeBanner(actions.exitSafeMode)
         state.blockingMessage?.let { MessageSurface(it, error = true, actions.clearMessages) }
@@ -55,8 +55,6 @@ fun NodeScreen(
             KeyValueRow("当前服务", state.nodeState.label())
             PrimaryNodeAction(state, actions)
         }
-
-        PerformancePanel(state, actions)
 
         InfoCard("模型") {
             KeyValueRow("固定模型", state.modelDisplayName.ifBlank { "未读取" })
@@ -113,6 +111,8 @@ fun NodeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        PerformancePanel(state, actions)
 
     }
 }
