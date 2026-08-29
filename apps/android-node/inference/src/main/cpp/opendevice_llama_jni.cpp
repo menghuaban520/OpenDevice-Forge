@@ -251,7 +251,8 @@ Java_dev_opendevice_node_inference_LlamaCppInferenceEngine_nativeLoad(
     jobject,
     jstring path,
     jint context_size,
-    jint threads
+    jint threads,
+    jobject load_control
 ) {
     if (context_size != 2048 || threads < 2 || threads > 4) {
         throw_illegal_argument(env, "invalid_native_load_options");
@@ -263,12 +264,32 @@ Java_dev_opendevice_node_inference_LlamaCppInferenceEngine_nativeLoad(
         return 0;
     }
 
+    if (load_control == nullptr) {
+        throw_illegal_argument(env, "load_control_missing");
+        return 0;
+    }
+    const jclass control_class = env->GetObjectClass(load_control);
+    if (control_class == nullptr) return 0;
+    const jmethodID should_continue = env->GetMethodID(control_class, "shouldContinue", "()Z");
+    env->DeleteLocalRef(control_class);
+    if (should_continue == nullptr) return 0;
+
     acquire_backend();
     auto engine = std::make_shared<Engine>();
     engine->context_size = context_size;
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
+    // The pinned llama-model-loader calls this on the loading thread, between
+    // tensor loads. Do not retain JNIEnv/local references beyond this JNI call.
+    struct LoadProgress { JNIEnv * env; jobject control; jmethodID method; };
+    LoadProgress progress{env, load_control, should_continue};
+    model_params.progress_callback_user_data = &progress;
+    model_params.progress_callback = [](float, void * data) -> bool {
+        const auto * progress = static_cast<LoadProgress *>(data);
+        const jboolean active = progress->env->CallBooleanMethod(progress->control, progress->method);
+        return !progress->env->ExceptionCheck() && active == JNI_TRUE;
+    };
     engine->model = llama_model_load_from_file(model_path.c_str(), model_params);
     if (engine->model == nullptr) {
         release_backend();

@@ -163,7 +163,7 @@ describe("validatePluginManifest", () => {
       execution: "native",
       permissions: ["device.read", "network.outbound", "service.local"],
       runtime: { kind: "service", entry: "ai-node" },
-      protected: true,
+      protected: false,
     });
     expect(validatePluginManifest(legacy, "0.1.0")).toEqual({
       ok: true,

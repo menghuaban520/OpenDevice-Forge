@@ -22,6 +22,7 @@ import dev.opendevice.node.kernel.RegistryResult
 import dev.opendevice.node.kernel.StartupMarker
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadState
+import dev.opendevice.node.settings.NodeSettings
 import java.io.File
 import java.io.IOException
 import java.net.BindException
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlin.test.AfterTest
@@ -66,6 +68,63 @@ class AiNodeControllerTest {
     @AfterTest
     fun tearDown() {
         modelFile.delete()
+    }
+
+    @Test
+    fun heatDuringLoadStopsBeforeTheNodeCanServe() = runTest {
+        val fixture = fixture(testScheduler)
+        fixture.registry.setEnabled(true)
+        fixture.engine.waitForLoad = true
+        val starting = backgroundScope.async { fixture.controller.start() }
+        fixture.engine.loadStarted.await()
+        fixture.facts.value = readyFacts(temperature = 45f)
+        runCurrent()
+        assertIs<AiNodeState.PausedHeat>(fixture.controller.state.value)
+        assertTrue(starting.isCompleted)
+        assertEquals(1, fixture.engine.unloadCount)
+    }
+
+    @Test
+    fun generationStopsAtTheConfiguredDeadlineAndReleasesBusyState() = runTest {
+        val fixture = fixture(testScheduler, settings = NodeSettings(generationTimeoutSeconds = 15))
+        fixture.registry.setEnabled(true)
+        fixture.controller.start()
+        val generation = backgroundScope.async {
+            runCatching { fixture.controller.chat("timeout", messages, options).toList() }
+        }
+        fixture.engine.generationStarted.await()
+        advanceTimeBy(15_001)
+        runCurrent()
+        assertTrue(generation.isCompleted)
+        assertTrue(generation.await().isFailure)
+        assertIs<AiNodeState.Serving>(fixture.controller.state.value)
+    }
+
+    @Test
+    fun customTemperatureLimitAlsoAppliesWithThePanelHidden() = runTest {
+        val fixture = fixture(testScheduler, settings = NodeSettings(temperatureLimitC = 39, showPerformance = false))
+        fixture.registry.setEnabled(true)
+        fixture.facts.value = readyFacts(temperature = 39f)
+        assertIs<StartResult.BlockedHeat>(fixture.controller.start())
+        assertEquals(0, fixture.engine.loadCount)
+    }
+
+    @Test
+    fun savedThreadCountIsAppliedAtModelLoad() = runTest {
+        val fixture = fixture(testScheduler, settings = NodeSettings(threads = 4))
+        fixture.registry.setEnabled(true)
+        assertEquals(StartResult.Started, fixture.controller.start())
+        assertEquals(4, fixture.engine.loadedThreads)
+    }
+
+    @Test
+    fun remoteGenerationCannotExceedThePhoneOutputLimit() = runTest {
+        val fixture = fixture(testScheduler, settings = NodeSettings(maxOutputTokens = 8))
+        fixture.registry.setEnabled(true)
+        fixture.engine.autoFinish = true
+        fixture.controller.start()
+        fixture.controller.chat("limited", messages, options.copy(maxTokens = 512)).toList()
+        assertEquals(8, fixture.engine.lastOptions?.maxTokens)
     }
 
     @Test
@@ -299,6 +358,7 @@ class AiNodeControllerTest {
 
     private fun fixture(
         scheduler: TestCoroutineScheduler,
+        settings: NodeSettings = NodeSettings(),
         monotonicNanos: () -> Long = System::nanoTime,
         rssBytes: () -> Long? = { 100L },
         socketServer: SocketHttpServer? = null,
@@ -330,6 +390,7 @@ class AiNodeControllerTest {
             rssBytes = rssBytes,
             socketHttpServer = socketServer,
             serverConfig = serverConfig,
+            nodeSettings = { settings },
         )
         return ControllerFixture(controller, registry, models, engine, facts, startupGuard)
     }
@@ -372,6 +433,8 @@ private class FakeModuleRegistry(manifest: ModuleManifest) : ModuleRegistry {
     override suspend fun installBuiltin(manifest: ModuleManifest) = Unit
     override suspend fun enable(id: String): RegistryResult = RegistryResult.Changed
     override suspend fun disable(id: String): RegistryResult = RegistryResult.Changed
+    override suspend fun uninstall(id: String): RegistryResult = RegistryResult.Rejected("unused_test_action")
+    override suspend fun reinstallBuiltin(id: String): RegistryResult = RegistryResult.Rejected("unused_test_action")
     override suspend fun recordCrash(id: String, atMillis: Long) = Unit
     override suspend fun exitSafeMode() = Unit
 }
@@ -389,6 +452,11 @@ private class GateInferenceEngine : InferenceEngine {
     private val mutable = MutableStateFlow<InferenceState>(InferenceState.Unloaded)
     override val state: StateFlow<InferenceState> = mutable
     var loadCount = 0
+    var loadedThreads: Int? = null
+    var lastOptions: GenerationOptions? = null
+    var waitForLoad = false
+    val loadStarted = CompletableDeferred<Unit>()
+    val finishLoad = CompletableDeferred<Unit>()
     var unloadCount = 0
     var autoFinish = false
     var generationFailure: Exception? = null
@@ -397,6 +465,9 @@ private class GateInferenceEngine : InferenceEngine {
 
     override suspend fun load(model: File, contextSize: Int, threads: Int) {
         loadCount += 1
+        loadedThreads = threads
+        loadStarted.complete(Unit)
+        if (waitForLoad) finishLoad.await()
         mutable.value = InferenceState.Ready(model.absolutePath)
     }
 
@@ -404,6 +475,7 @@ private class GateInferenceEngine : InferenceEngine {
         messages: List<ChatMessage>,
         options: GenerationOptions,
     ): Flow<GenerationChunk> = flow {
+        lastOptions = options
         mutable.value = InferenceState.Generating
         generationStarted.complete(Unit)
         generationFailure?.let { throw it }

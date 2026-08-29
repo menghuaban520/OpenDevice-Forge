@@ -7,6 +7,39 @@ import kotlin.test.assertIs
 
 class NodeSettingsRepositoryTest {
     @Test
+    fun performanceLimitsAreBoundedAndDisplayCanChangeWhileServing() = runTest {
+        val repo = InMemoryNodeSettingsRepository()
+        assertIs<SettingResult.Rejected>(repo.setTemperatureLimitC(44, false))
+        assertIs<SettingResult.Rejected>(repo.setTemperatureLimitC(37, false))
+        assertIs<SettingResult.Changed>(repo.setTemperatureLimitC(40, false))
+        assertIs<SettingResult.Rejected>(repo.setTemperatureLimitC(43, true))
+        assertIs<SettingResult.Rejected>(repo.setGenerationTimeoutSeconds(14, false))
+        assertIs<SettingResult.Rejected>(repo.setGenerationTimeoutSeconds(121, false))
+        assertIs<SettingResult.Changed>(repo.setGenerationTimeoutSeconds(30, false))
+        assertIs<SettingResult.Changed>(repo.setShowPerformance(false))
+        assertEquals(40, repo.settings.value.temperatureLimitC)
+        assertEquals(30, repo.settings.value.generationTimeoutSeconds)
+        assertEquals(false, repo.settings.value.showPerformance)
+    }
+
+    @Test
+    fun presetsDoNotModifyNetworkOrHideSafetyAndAreFrozenWhileServing() = runTest {
+        val repo = InMemoryNodeSettingsRepository(NodeSettings(port = 9090, lanEnabled = true))
+        repo.setShowPerformance(false)
+        assertIs<SettingResult.Changed>(repo.setPerformancePreset(PerformancePreset.FAST, false))
+        assertEquals(4, repo.settings.value.threads)
+        assertEquals(43, repo.settings.value.temperatureLimitC)
+        assertEquals(9090, repo.settings.value.port)
+        assertEquals(true, repo.settings.value.lanEnabled)
+        assertEquals(false, repo.settings.value.showPerformance)
+        assertIs<SettingResult.Rejected>(repo.setPerformancePreset(PerformancePreset.COOL, true))
+        assertEquals(4, repo.settings.value.threads)
+        repo.setPerformancePreset(PerformancePreset.COOL, false)
+        assertEquals(2, repo.settings.value.threads)
+        assertEquals(40, repo.settings.value.temperatureLimitC)
+    }
+
+    @Test
     fun defaultsMatchTheReleaseContract() {
         val settings = InMemoryNodeSettingsRepository().settings.value
 

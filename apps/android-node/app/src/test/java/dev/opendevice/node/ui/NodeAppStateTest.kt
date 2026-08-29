@@ -5,15 +5,16 @@ import kotlin.test.assertEquals
 
 class NodeAppStateTest {
     @Test
-    fun allFiveDestinationsAreStable() {
+    fun hostNavigationIsSeparateFromAiModuleNavigation() {
         assertEquals(
-            listOf("node", "chat", "modules", "connections", "status"),
-            NodeDestination.entries.map(NodeDestination::route),
+            listOf("modules", "device", "status"),
+            NodeDestination.hostEntries.map(NodeDestination::route),
         )
+        assertEquals(listOf("node", "chat", "connections"), NodeDestination.aiEntries.map(NodeDestination::route))
     }
 
     @Test
-    fun nodeIsTheDefaultDestination() {
-        assertEquals(NodeDestination.NODE, NodeAppState().destination)
+    fun modulesAreTheDefaultDestination() {
+        assertEquals(NodeDestination.MODULES, NodeAppState().destination)
     }
 }

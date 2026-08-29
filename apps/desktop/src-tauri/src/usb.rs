@@ -38,10 +38,10 @@ fn parse_usb_device_hint(output: &str) -> Option<UsbDeviceHint> {
     let mut product = None;
 
     for line in output.lines() {
-        if line.trim_start().starts_with("+-o") {
-            if let Some(hint) = finish_hint(manufacturer.take(), product.take()) {
-                return Some(hint);
-            }
+        if line.trim_start().starts_with("+-o")
+            && let Some(hint) = finish_hint(manufacturer.take(), product.take())
+        {
+            return Some(hint);
         }
         if let Some(value) = quoted_property(line, "USB Vendor Name") {
             manufacturer = Some(value);
@@ -66,9 +66,9 @@ pub fn probe_usb_device() -> Option<UsbDeviceHint> {
         if !output.status.success() {
             return None;
         }
-        return String::from_utf8(output.stdout)
+        String::from_utf8(output.stdout)
             .ok()
-            .and_then(|value| parse_usb_device_hint(&value));
+            .and_then(|value| parse_usb_device_hint(&value))
     }
 
     #[cfg(not(target_os = "macos"))]

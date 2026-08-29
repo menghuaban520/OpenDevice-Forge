@@ -4,6 +4,7 @@
 
 ## Product surface
 
+- Desktop and Android are module hosts. Each installs and manages modules compatible with its own runtime; phone LLM and remote API access are one optional module, not the mandatory product shell. Online module acquisition is a core release goal, not yet implemented by the bundled catalog.
 - Cross-platform Windows/macOS desktop device utility, not a browser dashboard or marketing site.
 - Primary user task: connect or select an Android phone, confirm that the app identified the correct device, understand its real condition, then choose an inspection or plugin action.
 - No phone model is a runtime default. The shell, breadcrumb, report, and compatibility view all derive their identity from the selected device. A missing field remains unknown and never falls back to another manufacturer's reference device.
@@ -103,7 +104,7 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 - Status: verified.
 - Signal: the prototype displayed a Huawei reference device when ADB was missing and rendered identical service settings for unrelated plugins.
 - Method: start from an unknown snapshot, populate only facts reported by the selected Android device, discard late results from a previously selected device, and render configuration only for an implemented `configuration` contribution.
-- Evidence: desktop unit tests cover ADB-missing, unauthorized, Google, partial Samsung, multiple devices, and rapid selection; Rust tests cover standard ADB lookup paths; Playwright and native-app screenshots cover the disconnected overview, plugin detail, and layout editor.
+- Evidence: desktop unit tests cover ADB-missing, unauthorized, Google, partial Samsung, multiple devices, and rapid selection; Rust tests cover standard ADB lookup paths; Playwright covers the disconnected overview, plugin install/enable/open lifecycle, the runtime-backed workbench, unavailable runtimes, and 1280 × 800 overflow.
 - Applies to: Android device identity, reports, compatibility assessment, device selection, plugin details, and advanced layout previews.
 - Does not apply to: iPhone/iPad discovery, vendor-only diagnostic protocols, automatic Platform-Tools installation, or claims that a specific model supports Root or a local model.
 - Revalidate when: adding an Apple provider, bundling or replacing ADB, introducing a plugin configuration schema, or displaying manufacturer-specific facts.
@@ -111,26 +112,37 @@ Third-party plugins cannot arbitrarily replace the shell or inject unbounded nat
 
 ## Android node control surface
 
-The Android companion is a compact, touch-first operations console for the phone owner. Its primary flow is `enable module -> verify model -> start visible service -> create a client key or chat locally`. It is not a miniature desktop dashboard and does not imply that the future public gateway, Root Broker, marketplace, creator, or script sandbox already exists.
+The Android app is a compact, touch-first module host for the phone owner. It opens on Modules without requiring a model. Its host flow is `choose module -> inspect source/permissions -> enable -> open`; within AI, `verify model -> start visible service -> create a client key or chat locally`. Device information is a separate read-only module. This does not imply that online package downloads, public gateway, Root Broker, creator, or script sandbox already exist.
 
 ### Android reference adoption map
 
 | Source | Adopt | Adapt | Reject | Evidence |
 | --- | --- | --- | --- | --- |
 | Android Material 3 for Compose | Native buttons, text fields, cards, tonal surfaces, dialogs, progress and semantic colors | Use a restrained device-utility hierarchy, factual Chinese copy, and one primary action in the current task area | Expressive decoration that competes with live device and safety state; equal card grids | https://developer.android.com/develop/ui/compose/designsystems/material3 |
-| Android compact navigation bar | Four persistent destinations of equal importance on a phone | Node, Modules, Connections, and Status remain stable and keep their state while switching | More than five destinations, text glyphs pretending to be finished icons, hidden marketplace routes | https://developer.android.com/develop/ui/compose/components/navigation-bar |
+| Android compact navigation bar | Stable primary destinations on a phone | Modules, Device, Status are host navigation; Node, Chat and Connections belong inside AI | Treating AI functions as the whole platform, text glyphs pretending to be icons | https://developer.android.com/develop/ui/compose/components/navigation-bar |
 | Android Compose dialog guidance | Modal confirmation for LAN exposure and one-time token disclosure | LAN confirmation uses the full compact window so the HTTP warning cannot be missed; the token dialog is dismissible and never reconstructs the raw token | Persisted confirmation, auto-opened settings, or a small warning buried under other controls | https://developer.android.com/develop/ui/compose/components/dialog |
 | Android notification permission guidance | Ask in the visible start-node action on API 33+ | A denial keeps the service stopped and explains why in the Node screen | Asking on first launch, bypassing denial, or opening system settings automatically | https://developer.android.com/develop/ui/compose/notifications/notification-permission |
 
 ### Android structural and visual rules
 
 1. Reading order on Node is prerequisites, model action, service action, then local chat. The first unsatisfied prerequisite owns the primary action and blocking explanation.
-2. Use the existing four-destination bottom navigation on compact phones. Each destination uses one consistent Material line-icon family and a text label; no single Chinese character acts as a placeholder icon.
+2. Use three host destinations on compact phones: Modules, Device and Status. AI-specific Node/Chat/Connections navigation appears only within AI. Each host destination uses a Material line icon and text label.
 3. Page padding is 20 dp horizontally, major vertical gaps are 16 dp, and related rows use 8–12 dp. Cards use 16 dp radius and tonal separation without decorative shadows.
 4. Headings use the system Material type scale. Endpoints, USB commands, fingerprints, and the one-time token use selectable monospace text; long values wrap instead of shrinking.
 5. Blue/primary is reserved for the current primary action and selected navigation. Error colors mean an actual blocking or destructive state; amber language is expressed with plain warning copy, not repeated status pills.
 6. Loading, missing, ready, busy, paused, blocked, failed, empty, and safe-mode states are explicit. Buttons are disabled during incompatible actions; no fake throughput, capacity, IP, or model readiness is rendered.
 7. LAN is off by default. Enabling it always requires a fresh full-screen phone confirmation with the exact cleartext-HTTP warning. Disabling it discards that confirmation.
 8. Raw client tokens exist only in the one-time creation surface. After dismissal, lists show label, fingerprint, creation/revocation state, and Revoke only.
-9. Public gateway, Root Broker, Marketplace, Creator, and Script sandbox stay visible only as `尚未实现` in Status. Modules explicitly says `尚未提供在线模块市场`; there is no dead search/install control.
+9. Public gateway, Root Broker, Marketplace, Creator, and Script sandbox stay visible only as `尚未实现` in Status. Modules explicitly says `尚未提供在线模块市场`; install actions currently reinstall APK-owned modules, and must never be described as online downloads. Disabled-only uninstall retains local data and its state across restarts. Kernel recovery does not depend on protected AI.
 10. This release targets compact Android phones. Wider windows center content at a readable maximum width instead of stretching definition rows; adaptive rail/tablet behavior remains a later verified enhancement.
+11. Performance controls reuse Node's existing form/card components: presets first, bounded custom fields second. Changing inference or safety settings requires a stopped node; the display toggle remains usable while running.
+12. The optional performance panel lives in Node/Chat and Status, never a system overlay. Hiding readings does not disable sampling, limits, or prominent paused/error messages. Label battery temperature separately from CPU frequency and app CPU use; unavailable readings stay unknown, never zero.
+13. Presets are workload choices, not speed guarantees. The app ceiling is a conservative policy, not a manufacturer's hardware safety guarantee. No Root, clock-lock, thermal-disable, battery-protection-disable, or automatic battery-exemption controls are offered.
+
+### Verified Android experience — 2026-08-28
+
+- Signal: the user wanted optional temperature/CPU readings and customizable speed without removing protection.
+- Method: reuse the compact Material forms and three host destinations; keep AI-specific Node/Chat/Connections inside AI, keep live-reading visibility independent from the guard, and lock workload settings while running.
+- Evidence: `docs/verification/screenshots/android-performance-node.png`, `android-performance-settings.png`, `android-modules-final.png`, `android-device-info.png`, `android-ai-node-running.png`, three current-device UI flows, two native smoke tests, and actual foreground-service start/stop on the installed candidate identified in `docs/verification/android-module-host.md`.
+- Scope: current compact Android light theme at 1080 × 2400. Desktop/browser gates are not applicable to this native-only UI change; dark theme, large fonts and tablets need their own visual checks.
+- Learning: more threads is not a guaranteed faster preset; the 2-thread short run outperformed 4 threads overall on this device. Unknown sensors must stay unknown, and hiding readings must never suppress safety state.

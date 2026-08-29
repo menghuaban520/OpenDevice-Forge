@@ -13,6 +13,7 @@ import dev.opendevice.node.device.DeviceFactsSource
 import dev.opendevice.node.inference.ChatMessage
 import dev.opendevice.node.inference.GenerationOptions
 import dev.opendevice.node.kernel.ModuleRegistry
+import dev.opendevice.node.kernel.RegistryResult
 import dev.opendevice.node.model.ModelDownloadRepository
 import dev.opendevice.node.model.ModelDownloadState
 import dev.opendevice.node.settings.NodeSettingsRepository
@@ -21,11 +22,15 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class NodeViewModel(
     private val moduleRegistry: ModuleRegistry,
@@ -62,6 +67,9 @@ class NodeViewModel(
         ),
     )
     private var localChatJob: Job? = null
+    private var modelVerificationJob: Job? = null
+    private var startRequestJob: Job? = null
+    private val moduleActions = Mutex()
 
     val state: StateFlow<NodeUiState> = mutableState.asStateFlow()
 
@@ -82,35 +90,101 @@ class NodeViewModel(
         }
     }
 
-    fun enableAiModule() {
-        actionScope.launch {
-            val result = moduleRegistry.enable(aiModuleId)
-            mutableState.update { current ->
-                current.copy(
-                    blockingMessage = (result as? dev.opendevice.node.kernel.RegistryResult.Rejected)
-                        ?.let { "模块启用失败：${it.reason}" },
-                    noticeMessage = if (result is dev.opendevice.node.kernel.RegistryResult.Changed) {
-                        "本地 AI 节点模块已启用"
-                    } else {
-                        null
-                    },
-                )
+    fun enableAiModule() = enableModule(aiModuleId)
+
+    fun disableAiModule() = disableModule(aiModuleId)
+
+    fun enableModule(id: String) = moduleAction {
+        val module = moduleRegistry.snapshot.value.modules.firstOrNull { it.manifest.id == id }
+        if (module == null || moduleDestination(module) == null) {
+            block("此模块的运行入口尚未实现")
+            return@moduleAction
+        }
+        reportModuleResult(moduleRegistry.enable(id), "模块已启用")
+    }
+
+    fun disableModule(id: String) = moduleAction {
+        val result = moduleRegistry.disable(id)
+        if (result is RegistryResult.Changed && id == aiModuleId) {
+            startRequestJob?.cancel()
+            localChatJob?.cancel()
+            modelVerificationJob?.cancel()
+            modelRepository.cancel()
+            serviceControl.stop()
+            controller.stop(StopReason.ModuleDisabled)
+        }
+        reportModuleResult(result, "模块已关闭")
+    }
+
+    fun uninstallModule(id: String) = moduleAction {
+        if (id == aiModuleId && isServiceRunning()) {
+            block("请先关闭模块并等待服务停止，再卸载")
+            return@moduleAction
+        }
+        val result = moduleRegistry.uninstall(id)
+        if (result is RegistryResult.Changed && id == aiModuleId) {
+            startRequestJob?.cancel()
+            modelVerificationJob?.cancel()
+            modelRepository.cancel()
+        }
+        reportModuleResult(result, "模块已卸载；本地数据已保留")
+    }
+
+    fun installModule(id: String) = moduleAction {
+        reportModuleResult(moduleRegistry.reinstallBuiltin(id), "模块已安装，默认关闭")
+    }
+
+    fun prepareAiModule() {
+        if (modelVerificationJob?.isActive == true || moduleRegistry.snapshot.value.safeMode ||
+            moduleRegistry.snapshot.value.modules.none { it.manifest.id == aiModuleId && it.installed } ||
+            modelRepository.state.value != ModelDownloadState.Missing
+        ) return
+        modelVerificationJob = actionScope.launch {
+            try {
+                modelRepository.verifiedModelFile()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                block("模型校验未完成，请在 AI 模块中重试")
             }
         }
     }
 
-    fun disableAiModule() {
+    private fun moduleAction(action: suspend () -> Unit) {
         actionScope.launch {
-            if (isServiceRunning()) serviceControl.stop()
-            controller.stop(StopReason.ModuleDisabled)
-            moduleRegistry.disable(aiModuleId)
-            mutableState.update { current ->
-                current.copy(noticeMessage = "本地 AI 节点模块已关闭")
+            moduleActions.withLock {
+                try {
+                    action()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    block("模块操作未完成，请重试；未确认成功前不会显示为已完成")
+                }
             }
         }
+    }
+
+    private fun reportModuleResult(result: RegistryResult, message: String) {
+        mutableState.update { current -> current.copy(
+            modules = moduleRegistry.snapshot.value,
+            blockingMessage = (result as? RegistryResult.Rejected)?.let {
+                when (it.reason) {
+                    "not_installed" -> "请先安装模块"
+                    "disable_before_uninstall" -> "请先关闭模块，再卸载"
+                    "safe_mode" -> "请先退出安全模式，再手动启用模块"
+                    "protected_module" -> "不能卸载内核保护模块"
+                    else -> "模块操作被拒绝：${it.reason}"
+                }
+            },
+            noticeMessage = message.takeIf { result is RegistryResult.Changed },
+        ) }
     }
 
     fun downloadModel() {
+        if (moduleRegistry.snapshot.value.modules.none { it.manifest.id == aiModuleId && it.installed }) {
+            block("请先安装本地 AI 节点模块")
+            return
+        }
         modelRepository.enqueue()
         clearMessages()
     }
@@ -120,7 +194,8 @@ class NodeViewModel(
     }
 
     fun startNode(notificationPermissionGranted: Boolean = true) {
-        actionScope.launch {
+        if (startRequestJob?.isActive == true) return
+        startRequestJob = actionScope.launch {
             mutableState.update { current ->
                 current.copy(blockingMessage = null, noticeMessage = null)
             }
@@ -130,7 +205,15 @@ class NodeViewModel(
                 block("请先启用本地 AI 节点模块")
                 return@launch
             }
-            if (modelRepository.verifiedModelFile() == null) {
+            val modelFile = try {
+                modelRepository.verifiedModelFile()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                block("模型校验未完成，请重试")
+                return@launch
+            }
+            if (modelFile == null) {
                 block("请先下载并校验模型")
                 return@launch
             }
@@ -149,6 +232,14 @@ class NodeViewModel(
                 block("端口 ${settings.port} 已被占用")
                 return@launch
             }
+            currentCoroutineContext().ensureActive()
+            if (moduleRegistry.snapshot.value.modules.none {
+                    it.manifest.id == aiModuleId && it.installed && it.enabled
+                }
+            ) {
+                block("模块已关闭，本次启动已取消")
+                return@launch
+            }
             when (val result = serviceControl.start()) {
                 ServiceRequestResult.Accepted -> {
                     mutableState.update { current ->
@@ -164,6 +255,7 @@ class NodeViewModel(
     }
 
     fun stopNode() {
+        startRequestJob?.cancel()
         localChatJob?.cancel()
         localChatJob = null
         when (val result = serviceControl.stop()) {
@@ -219,7 +311,12 @@ class NodeViewModel(
                 }
             } catch (cancelled: CancellationException) {
                 mutableState.update { current ->
-                    current.copy(chat = current.chat.copy(generating = false))
+                    current.copy(chat = current.chat.copy(
+                        generating = false,
+                        errorMessage = if (cancelled is kotlinx.coroutines.TimeoutCancellationException) {
+                            "已到单次时限，生成已停止；可缩短问题或调整性能设置。"
+                        } else current.chat.errorMessage,
+                    ))
                 }
                 throw cancelled
             } catch (error: Exception) {
@@ -255,6 +352,22 @@ class NodeViewModel(
 
     fun setThreads(value: Int) = updateSetting {
         settingsRepository.setThreads(value, isServiceRunning())
+    }
+
+    fun setTemperatureLimitC(value: Int) = updateSetting {
+        settingsRepository.setTemperatureLimitC(value, isServiceRunning())
+    }
+
+    fun setGenerationTimeoutSeconds(value: Int) = updateSetting {
+        settingsRepository.setGenerationTimeoutSeconds(value, isServiceRunning())
+    }
+
+    fun setShowPerformance(value: Boolean) = updateSetting {
+        settingsRepository.setShowPerformance(value)
+    }
+
+    fun setPerformancePreset(value: dev.opendevice.node.settings.PerformancePreset) = updateSetting {
+        settingsRepository.setPerformancePreset(value, isServiceRunning())
     }
 
     fun requestLanEnable() {

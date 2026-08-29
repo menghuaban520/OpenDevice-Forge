@@ -18,6 +18,10 @@ interface ModuleRegistry {
 
     suspend fun disable(id: String): RegistryResult
 
+    suspend fun uninstall(id: String): RegistryResult
+
+    suspend fun reinstallBuiltin(id: String): RegistryResult
+
     suspend fun recordCrash(id: String, atMillis: Long)
 
     suspend fun exitSafeMode()
@@ -43,6 +47,7 @@ abstract class BaseModuleRegistry(
             val record = existing?.copy(
                 manifest = manifest,
                 installed = true,
+                enabled = false,
             ) ?: ModuleRecord(
                 manifest = manifest,
                 installed = true,
@@ -56,7 +61,7 @@ abstract class BaseModuleRegistry(
                         atMillis = clock(),
                         moduleId = manifest.id,
                         action = ModuleAuditAction.INSTALL,
-                        result = if (existing == null) "installed_disabled" else "updated",
+                        result = if (existing == null) "installed_disabled" else "updated_disabled",
                     ),
                 ),
             )
@@ -73,6 +78,10 @@ abstract class BaseModuleRegistry(
                 action = ModuleAuditAction.ENABLE,
                 reason = "unknown_module",
             )
+
+        if (!record.installed) {
+            return@withLock reject(current, id, ModuleAuditAction.ENABLE, "not_installed")
+        }
 
         if (current.safeMode && !record.manifest.protected) {
             return@withLock reject(
@@ -107,6 +116,44 @@ abstract class BaseModuleRegistry(
             ),
         )
         commit(next)
+        RegistryResult.Changed
+    }
+
+    final override suspend fun uninstall(id: String): RegistryResult = mutex.withLock {
+        val current = mutableSnapshot.value
+        val record = current.modules.firstOrNull { it.manifest.id == id }
+            ?: return@withLock reject(current, id, ModuleAuditAction.UNINSTALL, "unknown_module")
+        val reason = when {
+            record.manifest.protected -> "protected_module"
+            record.enabled -> "disable_before_uninstall"
+            else -> null
+        }
+        if (reason != null) return@withLock reject(current, id, ModuleAuditAction.UNINSTALL, reason)
+        commit(current.copy(
+            modules = current.modules.map {
+                if (it.manifest.id == id) it.copy(installed = false, enabled = false, crashTimestamps = emptyList()) else it
+            },
+            audit = current.audit.appendAudit(ModuleAuditEvent(clock(), id, ModuleAuditAction.UNINSTALL, "uninstalled_data_retained")),
+        ))
+        RegistryResult.Changed
+    }
+
+    final override suspend fun reinstallBuiltin(id: String): RegistryResult = mutex.withLock {
+        val current = mutableSnapshot.value
+        val record = current.modules.firstOrNull { it.manifest.id == id }
+            ?: return@withLock reject(current, id, ModuleAuditAction.INSTALL, "unknown_module")
+        if (record.manifest.source.kind != dev.opendevice.node.contract.SourceKind.Builtin ||
+            record.manifest.integrity.kind != dev.opendevice.node.contract.IntegrityKind.HostApk
+        ) return@withLock reject(current, id, ModuleAuditAction.INSTALL, "not_builtin")
+        val errors = ModuleCompatibility.check(record.manifest, host)
+        if (errors.isNotEmpty()) return@withLock reject(current, id, ModuleAuditAction.INSTALL, errors.joinToString(",") { it.code })
+        if (record.installed) return@withLock RegistryResult.Changed
+        commit(current.copy(
+            modules = current.modules.map {
+                if (it.manifest.id == id) it.copy(installed = true, enabled = false, crashTimestamps = emptyList()) else it
+            },
+            audit = current.audit.appendAudit(ModuleAuditEvent(clock(), id, ModuleAuditAction.INSTALL, "reinstalled_disabled")),
+        ))
         RegistryResult.Changed
     }
 

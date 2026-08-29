@@ -8,6 +8,16 @@ class ModuleManifestFixtureTest {
     private val strictJson = Json { ignoreUnknownKeys = false }
 
     @Test
+    fun deviceInfoUsesTheSharedContractWithoutAiOrNetworkPermissions() {
+        val fixture = requireNotNull(javaClass.getResource("/device-info.json")).readText(Charsets.UTF_8)
+        val manifest = strictJson.decodeFromString<ModuleManifest>(fixture)
+        assertEquals("dev.opendevice.module.device-info", manifest.id)
+        assertEquals(listOf(Permission.DeviceRead), manifest.permissions)
+        assertEquals(null, manifest.service)
+        assertEquals(false, manifest.protected)
+    }
+
+    @Test
     fun sharedAiNodeFixtureDecodesStrictly() {
         val fixture = requireNotNull(javaClass.getResource("/ai-node.json"))
             .readText(Charsets.UTF_8)

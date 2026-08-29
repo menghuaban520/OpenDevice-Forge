@@ -114,7 +114,10 @@ class DataStoreModuleRegistry private constructor(
             val builtinIds = builtins.mapTo(mutableSetOf()) { it.id }
             val currentBuiltins = builtins.map { manifest ->
                 val record = stored.modules.firstOrNull { it.manifest.id == manifest.id }
-                record?.copy(manifest = manifest, installed = true) ?: ModuleRecord(
+                record?.copy(
+                    manifest = manifest,
+                    enabled = record.installed && record.enabled && (!stored.safeMode || manifest.protected),
+                ) ?: ModuleRecord(
                     manifest = manifest,
                     installed = true,
                     enabled = false,
@@ -135,7 +138,6 @@ class DataStoreModuleRegistry private constructor(
         ): ModuleRegistrySnapshot {
             val recovered = ModuleRegistrySnapshot(
                 modules = builtins
-                    .filter(ModuleManifest::protected)
                     .map { manifest ->
                         ModuleRecord(
                             manifest = manifest,

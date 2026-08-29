@@ -5,8 +5,23 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 class ModelSetupScreenTest {
+    @Test
+    fun hostStartsOnModulesIndependentlyOfAiSetup() {
+        assertEquals(NodeDestination.MODULES, NodeAppState().destination)
+    }
+
+    @Test
+    fun missingModelNeverBlocksHostScreensOrAnUninstalledAiModule() {
+        for (destination in NodeDestination.hostEntries) {
+            assertFalse(shouldShowModelSetup(ModelDownloadState.Missing, false, destination, true))
+        }
+        assertFalse(shouldShowModelSetup(ModelDownloadState.Missing, false, NodeDestination.NODE, false))
+        assertTrue(shouldShowModelSetup(ModelDownloadState.Missing, false, NodeDestination.NODE, true))
+    }
+
     @Test
     fun missingModelShowsFirstOpenRecommendation() {
         assertTrue(shouldShowModelSetup(ModelDownloadState.Missing, skipped = false))

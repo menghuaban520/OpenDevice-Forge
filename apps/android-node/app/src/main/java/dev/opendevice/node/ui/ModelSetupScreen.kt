@@ -24,7 +24,9 @@ import java.util.Locale
 internal fun shouldShowModelSetup(
     modelState: ModelDownloadState,
     skipped: Boolean,
-): Boolean = !skipped && modelState !is ModelDownloadState.Ready
+    destination: NodeDestination = NodeDestination.NODE,
+    moduleInstalled: Boolean = true,
+): Boolean = destination.isAi && moduleInstalled && !skipped && modelState !is ModelDownloadState.Ready
 
 @Composable
 fun ModelSetupScreen(

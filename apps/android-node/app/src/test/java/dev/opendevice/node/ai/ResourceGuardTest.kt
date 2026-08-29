@@ -11,6 +11,24 @@ class ResourceGuardTest {
     private val guard = ResourceGuard(modelSize)
 
     @Test
+    fun unknownOrInvalidSensorsCannotAuthorizeMoreWork() {
+        for (temperature in listOf(null, Float.NaN, Float.POSITIVE_INFINITY)) {
+            assertIs<ResourceDecision.PauseHeat>(
+                guard.evaluate(facts(tempC = temperature, thermal = ThermalLevel.UNKNOWN)),
+            )
+        }
+        guard.markPausedForHeat()
+        assertIs<ResourceDecision.StayPaused>(
+            guard.evaluate(facts(tempC = null, thermal = ThermalLevel.UNKNOWN)),
+        )
+    }
+
+    @Test
+    fun defaultAppCeilingPausesAt43Not45() {
+        assertIs<ResourceDecision.PauseHeat>(guard.evaluate(facts(tempC = 43f)))
+    }
+
+    @Test
     fun memoryRequiresModelPlus512MiB() {
         val required = modelSize + 512.mebibytes
 

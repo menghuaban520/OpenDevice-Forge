@@ -7,6 +7,8 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.Process
+import android.os.SystemClock
 import android.os.storage.StorageManager
 import java.io.File
 import java.io.IOException
@@ -23,6 +25,7 @@ class AndroidDeviceFactsSource(
     context: Context,
 ) : DeviceFactsSource {
     private val applicationContext = context.applicationContext
+    private val cpuSampler = ProcessCpuSampler()
     private val activityManager =
         applicationContext.getSystemService(ActivityManager::class.java)
     private val storageManager =
@@ -54,8 +57,25 @@ class AndroidDeviceFactsSource(
             batteryTemperatureC = battery?.temperatureC,
             thermalStatus = readThermalStatus(),
             rootSignals = readRootSignals(),
+            appCpuPercent = cpuSampler.sample(
+                SystemClock.elapsedRealtime(),
+                Process.getElapsedCpuTime(),
+                Runtime.getRuntime().availableProcessors(),
+            ),
+            cpuFrequenciesMhz = readCpuFrequencies(),
         )
     }
+
+    private fun readCpuFrequencies(): Map<Int, Int?> = try {
+        File("/sys/devices/system/cpu").listFiles().orEmpty()
+            .mapNotNull { file ->
+                val id = file.name.removePrefix("cpu").toIntOrNull() ?: return@mapNotNull null
+                val mhz = try {
+                    parseCpuFrequencyKhz(file.resolve("cpufreq/scaling_cur_freq").readText())
+                } catch (_: IOException) { null } catch (_: SecurityException) { null }
+                id to mhz
+            }.sortedBy { it.first }.toMap()
+    } catch (_: SecurityException) { emptyMap() }
 
     private fun readMemory(): ActivityManager.MemoryInfo? = try {
         ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)

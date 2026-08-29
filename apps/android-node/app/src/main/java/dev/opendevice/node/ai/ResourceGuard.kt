@@ -21,7 +21,7 @@ sealed interface ResourceDecision {
         val thermal: ThermalLevel,
     ) : ResourceDecision
 }
-class ResourceGuard(modelSizeBytes: Long) {
+class ResourceGuard(modelSizeBytes: Long, private val temperatureLimitC: () -> Int = { 43 }) {
     val requiredMemoryBytes: Long = Math.addExact(modelSizeBytes, MEMORY_HEADROOM_BYTES)
     private var pausedForHeat = false
 
@@ -31,17 +31,19 @@ class ResourceGuard(modelSizeBytes: Long) {
 
     @Synchronized
     fun evaluate(facts: DeviceFacts): ResourceDecision {
-        val temperature = facts.batteryTemperatureC
+        val temperature = facts.batteryTemperatureC?.takeIf { it.isFinite() }
         val thermal = facts.thermalStatus
+        val sensorsUnknown = temperature == null && thermal == ThermalLevel.UNKNOWN
+        val pauseAt = temperatureLimitC().coerceIn(38, 43)
 
         if (pausedForHeat) {
-            val temperatureReady = temperature == null || temperature <= RESUME_TEMPERATURE_C
+            val temperatureReady = temperature == null || temperature <= pauseAt - 3
             val thermalReady = !thermal.isAboveModerate()
-            if (!temperatureReady || !thermalReady) {
+            if (sensorsUnknown || !temperatureReady || !thermalReady) {
                 return ResourceDecision.StayPaused(temperature, thermal)
             }
         } else if (
-            temperature != null && temperature >= PAUSE_TEMPERATURE_C ||
+            sensorsUnknown || temperature != null && temperature >= pauseAt ||
             thermal.isSevereOrWorse()
         ) {
             return ResourceDecision.PauseHeat(temperature, thermal)
@@ -82,7 +84,5 @@ class ResourceGuard(modelSizeBytes: Long) {
 
     private companion object {
         const val MEMORY_HEADROOM_BYTES = 512L * 1_024L * 1_024L
-        const val PAUSE_TEMPERATURE_C = 45f
-        const val RESUME_TEMPERATURE_C = 40f
     }
 }

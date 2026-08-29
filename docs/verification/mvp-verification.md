@@ -26,9 +26,9 @@ This is not a public release or a phone-compatibility certification.
 | macOS native application | Tauri release build and process launch | Passed on this Mac |
 | DMG container | `hdiutil verify` | Passed |
 | Apple distribution signature/notarization | No Developer ID credentials were provided | Not available |
-| HUAWEI nova 7 SE 5G 乐活版 | No real phone was connected during verification | Not available |
+| HUAWEI CDL-AN50 | Current installed hashes, four device tests, bounded thread comparison, actual local chat and visible stopped lifecycle verified on 2026-08-28 | Bounded current-candidate checks passed; background/soak and current authenticated API behavior remain separate gates |
 | Windows runtime | Workflow is configured; no Windows hardware/run was available locally | Not available |
-| Android local model and local/USB API | 87 Android JVM tests, lint, arm64 app APK, and instrumentation APK | Source/build passed; real phone pending |
+| Android local model and local/USB API | 111 Android JVM tests, lint, arm64 app APK, instrumentation APK, and version-bound phone evidence | Current source/build passed; see `android-node-cdl-an50.md` for the exact APK/device/API boundary |
 | Public-IP gateway | Requires a separately authorized VPS, TLS, and phone-initiated tunnel | Deliberately not implemented |
 
 ## Packaging result
@@ -55,23 +55,23 @@ This is not a public release or a phone-compatibility certification.
 1. Connect one chosen phone, enable developer options and USB debugging, authorize this computer, and compare the live snapshot with the public/demo snapshot.
 2. Run the configured workflow on Windows and inspect the actual installer and native window before calling Windows supported.
 3. Add platform signing/notarization only after the repository/owner and distribution policy are chosen.
-4. Run the Android node APK and its instrumentation suite on the target CDL-AN50; the current evidence proves source, tests, lint, native arm64 packaging, and test-APK compilation, not real-device inference.
+4. Extend the bounded CDL-AN50 verification to screen-off/OEM background recovery, a guarded thermal soak and authenticated API behavior on the new APK; do not carry an earlier APK's result forward.
 5. Implement and deploy the public gateway only after a VPS and its externally visible side effects are separately authorized.
 
-## Android node addendum — 2026-08-26
+## Android node addendum — updated 2026-08-28
 
-The Android companion now implements the built-in AI module lifecycle, verified resumable model storage, pinned `llama.cpp` JNI integration, one-generation-at-a-time controller, bounded authenticated OpenAI-compatible HTTP service, phone settings, local chat, client-key management, and the four-screen control surface.
+The Android companion implements the built-in AI module lifecycle, verified resumable model storage, pinned `llama.cpp` JNI integration, one-generation-at-a-time controller, bounded authenticated OpenAI-compatible HTTP service, phone settings, local chat, client-key management, and the five-screen control surface. Optional live performance readings and bounded thread/output/temperature/deadline controls are connected to actual inference and protection behavior.
 
-This addendum does not replace real-phone evidence. No Android device or emulator was attached during this build, so the UI instrumentation flow, Android Keystore runtime, notification permission, OEM background behavior, model download, JNI inference, USB client, and thermal soak remain pending.
+This addendum does not replace the version-bound phone report. The latest candidate's installed hashes, native/UI instrumentation, real local chat, compact light-theme screenshots and stopped lifecycle are recorded together there. Earlier authenticated USB/API evidence applies only to its own APK; no long-duration or OEM background-survival guarantee is made.
 
 ### UI verification
 
 | Gate | Status | Evidence | Action |
 | --- | --- | --- | --- |
-| Task and structure | PASS | Node follows enable → model → service → local chat; four stable bottom destinations | Recheck on CDL-AN50 at its real font scale |
-| Color and type | PASS at source/build layer | Material semantic colors and type scale; selectable monospace endpoint, command, fingerprint, and token | Capture real light/dark screenshots before visual sign-off |
-| Icons and shape | PASS at source/build layer | One Material outline icon family; 16 dp card radius; no text-glyph navigation icons | Inspect optical alignment on the phone |
-| Components and states | PASS at test layer | Unit tests cover prerequisites, LAN confirmation, one-time token, settings bounds, local streaming, and actual bind race | Execute `NodeFlowTest` on a connected device |
+| Task and structure | PASS on compact phone | Node follows enable → model → service → local chat; five stable bottom destinations; actual start/chat/stop checked | Recheck at enlarged font scales and on tablets |
+| Color and type | PASS for current compact light theme | Material semantic colors/type; actual performance-panel and settings screenshots inspected | Dark-theme visual revalidation remains open |
+| Icons and shape | PASS on compact phone | One Material outline icon family; 16 dp card radius; five navigation items visually inspected | Revalidate when navigation changes |
+| Components and states | PASS at bounded test layer | 111 unit tests; two UI flows and two actual native tests passed together; hidden-panel chat and visible stop also checked in the real app | Do not substitute fake UI dependencies for authenticated API evidence |
 | Motion and feedback | N/A | No decorative or continuous motion was added; state changes use native Compose feedback | Reassess if animated transitions are introduced |
-| Build and device | PARTIAL | 87 JVM tests, lint, app APK, and Android-test APK pass | Blocked on absent Android device/emulator |
+| Build and device | PASS for bounded current-candidate scope | 111 JVM tests, lint, both APK builds, installed hash readback, four device tests, short thread comparison and stopped snapshot | Background recovery, sustained load and current-version authenticated API testing remain unverified |
 | Learning continuity | PASS | `DESIGN.md`, prior fidelity evidence, and the Android UI quality gates were applied | Revalidate after marketplace, public gateway, Root Broker, or tablet layouts exist |

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "phase": "performance-candidate-stopped-20260828",
+  "collectedAt": "2026-08-27T17:31:16.918Z",
+  "completedAt": "2026-08-27T17:31:17.267Z",
+  "device": {
+    "serialSha256": "8e15101b4d3f8fc96e2d111f840f5d904c61de95de1ff85d3945e1a6893c76b9",
+    "model": "CDL-AN50",
+    "cdlAn50GateSatisfied": true,
+    "differentDeviceExplicitlyAllowed": false
+  },
+  "build": {
+    "apkFile": "app-debug.apk",
+    "apkSha256": "289eddb163aa21603a59af4eefd2edd5fa583d0c8175874e3d8bb77401a20855"
+  },
+  "requestedDurationSeconds": 0,
+  "intervalSeconds": 30,
+  "safetyStop": null,
+  "samples": [
+    {
+      "collectedAt": "2026-08-27T17:31:17.039Z",
+      "properties": {
+        "model": "CDL-AN50",
+        "androidRelease": "10",
+        "androidSdk": "29",
+        "abiList": "arm64-v8a,armeabi-v7a,armeabi"
+      },
+      "memory": {
+        "procMeminfo": "MemTotal:        7749536 kB\nMemFree:          515752 kB\nMemAvailable:    3991812 kB\nBuffers:           11264 kB\nCached:          3515848 kB\nSwapCached:        21792 kB\nActive:          3516860 kB\nInactive:        2125992 kB\nActive(anon):     459228 kB\nInactive(anon):  1675388 kB\nActive(file):    3057632 kB\nInactive(file):   450604 kB\nUnevictable:         896 kB\nMlocked:             896 kB\nSwapTotal:       4194300 kB\nSwapFree:        3830544 kB\nDirty:               192 kB\nWriteback:             4 kB\nAnonPages:       2108084 kB\nMapped:          1513036 kB\nShmem:             18876 kB\nSlab:             285968 kB\nSReclaimable:      86916 kB\nSUnreclaim:       199052 kB\nSlabLarge:         28592 kB\nKernelStack:       74896 kB\nPageTables:       107884 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:     8069068 kB\nCommitted_AS:   114236472 kB\nVmallocTotal:   262143936 kB\nVmallocUsed:           0 kB\nVmallocChunk:          0 kB\nCmaTotal:         663552 kB\nCmaFree:               0 kB\nIonTotalCache:     69568 kB\nIonTotalUsed:     189248 kB\nProtected:         39872 kB\nRsvTotalUsed:     407044 kB\n",
+        "processStatus": "process_not_running",
+        "processMeminfo": "No process found for: dev.opendevice.node\n"
+      },
+      "storage": "Filesystem       1K-blocks     Used Available Use% Mounted on\n/dev/block/sdd72 114612224 31542348  83069876  28% /cust/global/carrier/network\n",
+      "battery": "Current Battery Service state:\n  AC powered: true\n  USB powered: false\n  Wireless powered: false\n  Max charging current: 0\n  Max charging voltage: 0\n  Charge counter: 1000\n  status: 5\n  health: 2\n  present: true\n  level: 100\n  scale: 100\n  voltage: 4329\n  temperature: 310\n  technology: Li-poly\n",
+      "batteryTemperatureC": 31,
+      "thermal": "IsStatusOverride: false\nThermalEventListeners:\n\tcallbacks: 1\n\tkilled: false\n\tbroadcasts count: -1\nThermalStatusListeners:\n\tcallbacks: 3\n\tkilled: false\n\tbroadcasts count: -1\nThermal Status: 0\nCached temperatures:\n\tTemperature{mValue=36.0, mType=1, mName=gpu, mStatus=0}\n\tTemperature{mValue=39.0, mType=0, mName=cluster0, mStatus=0}\n\tTemperature{mValue=39.0, mType=0, mName=cluster1, mStatus=0}\n\tTemperature{mValue=30.0, mType=2, mName=Battery, mStatus=0}\n\tTemperature{mValue=30.0, mType=3, mName=shell_frame, mStatus=0}\nHAL Ready: true\nHAL connection:\n\tThermalHAL 2.0 connected: yes\nCurrent temperatures from HAL:\n\tTemperature{mValue=32.0, mType=1, mName=gpu, mStatus=0}\n\tTemperature{mValue=34.0, mType=0, mName=cluster0, mStatus=0}\n\tTemperature{mValue=31.0, mType=2, mName=Battery, mStatus=0}\n\tTemperature{mValue=34.0, mType=0, mName=cluster1, mStatus=0}\n\tTemperature{mValue=30.426, mType=3, mName=shell_frame, mStatus=0}\nCurrent cooling devices from HAL:\n\tCoolingDevice{mValue=0, mType=2, mName=cluster0}\n\tCoolingDevice{mValue=0, mType=2, mName=cluster1}\n\tCoolingDevice{mValue=0, mType=3, mName=gpu}\n",
+      "app": {
+        "package": {
+          "versionName": "0.1.0",
+          "versionCode": "1",
+          "firstInstallTime": "2026-08-26 02:29:18",
+          "lastUpdateTime": "2026-08-28 01:20:09"
+        },
+        "foregroundService": "No services match: dev.opendevice.node/.ai.AiNodeService\nUse -h for help.\n",
+        "diagnostics": {},
+        "pid": null
+      },
+      "logcat": "process_not_running",
+      "safetyStop": null
+    }
+  ]
+}

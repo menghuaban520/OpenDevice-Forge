@@ -14,6 +14,8 @@ data class DeviceFacts(
     val batteryTemperatureC: Float? = null,
     val thermalStatus: ThermalLevel = ThermalLevel.UNKNOWN,
     val rootSignals: List<String> = emptyList(),
+    val appCpuPercent: Double? = null,
+    val cpuFrequenciesMhz: Map<Int, Int?> = emptyMap(),
 ) {
     val isRootConfirmed: Boolean
         get() = false

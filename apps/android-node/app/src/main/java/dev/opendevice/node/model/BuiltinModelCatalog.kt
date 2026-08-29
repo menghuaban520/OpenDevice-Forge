@@ -43,18 +43,18 @@ object BuiltinModelCatalog {
     )
 
     fun recommend(facts: DeviceFacts): ModelDescriptor {
-        val hasEnoughMemory = facts.totalMemoryBytes?.let { it >= NEWER_PROFILE_MIN_MEMORY }
+        val hasEnoughMemory = facts.totalMemoryBytes?.let { it >= VERIFIED_PROFILE_MIN_MEMORY }
             ?: false
         val hasEnoughStorage = facts.allocatableStorageBytes?.let {
-            it >= qwen3_5_0_8b_q4_0.sizeBytes + DOWNLOAD_STORAGE_RESERVE
+            it >= qwen3_0_6b.sizeBytes + DOWNLOAD_STORAGE_RESERVE
         } ?: false
         return if (hasEnoughMemory && hasEnoughStorage) {
-            qwen3_5_0_8b_q4_0
+            qwen3_0_6b
         } else {
             qwen3_0_6b_q4_0
         }
     }
 
-    private const val NEWER_PROFILE_MIN_MEMORY = 6L * 1_073_741_824L
+    private const val VERIFIED_PROFILE_MIN_MEMORY = 6L * 1_073_741_824L
     private const val DOWNLOAD_STORAGE_RESERVE = 256L * 1_024L * 1_024L
 }

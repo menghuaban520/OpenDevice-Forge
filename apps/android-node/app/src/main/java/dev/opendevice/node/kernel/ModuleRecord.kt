@@ -24,6 +24,7 @@ enum class ModuleAuditAction {
     INSTALL,
     ENABLE,
     DISABLE,
+    UNINSTALL,
     CRASH_RECORDED,
     SAFE_MODE_ENTER,
     SAFE_MODE_EXIT,

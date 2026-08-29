@@ -163,5 +163,5 @@
       "contentTypes": ["application/json", "text/event-stream"]
     }
   },
-  "protected": true
+  "protected": false
 }

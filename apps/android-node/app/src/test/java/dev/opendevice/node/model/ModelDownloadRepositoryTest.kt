@@ -201,6 +201,29 @@ class ModelDownloadRepositoryTest {
     }
 
     @Test
+    fun cancellingModuleWorkDoesNotPoisonVerificationOfARetainedModel() = runBlocking {
+        val bytes = modelBytes(1_024)
+        val source = FakeRangeSource(bytes)
+        finalFile().apply { parentFile?.mkdirs(); writeBytes(bytes) }
+        val repository = repository(source, descriptor(bytes))
+        assertEquals(finalFile(), repository.verifiedModelFile())
+        repository.cancel()
+        assertEquals(finalFile(), repository.verifiedModelFile())
+        assertEquals(0, source.openCount)
+        assertIs<ModelDownloadState.Ready>(repository.state.value)
+        Unit
+    }
+
+    @Test
+    fun cancellingQueuedWorkDoesNotLeaveAPermanentQueuedIndicator() {
+        val bytes = modelBytes(1_024)
+        val repository = repository(FakeRangeSource(bytes), descriptor(bytes))
+        repository.enqueue()
+        repository.cancel()
+        assertIs<ModelDownloadState.Missing>(repository.state.value)
+    }
+
+    @Test
     fun hashMismatchNeverPublishesModel() = runBlocking {
         val bytes = ByteArray(16)
         val source = FakeRangeSource(bytes)

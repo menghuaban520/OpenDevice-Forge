@@ -33,6 +33,7 @@ import java.io.File
 import java.net.InetAddress
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -95,6 +97,59 @@ class NodeViewModelTest {
         assertEquals(listOf(ChatMessage("user", "你好")), fixture.controller.lastMessages)
         assertEquals("手机回复", fixture.viewModel.state.value.chat.messages.last().content)
         assertFalse(fixture.viewModel.state.value.chat.generating)
+    }
+
+    @Test
+    fun disablingSendsServiceCancellationBeforeWaitingForControllerCleanup() = runTest {
+        val fixture = fixture(testScope())
+        fixture.registry.setEnabled(true)
+        fixture.controller.mutableState.value = AiNodeState.Starting
+        var stopRequestsBeforeCleanup = 0
+        fixture.controller.onStop = { stopRequestsBeforeCleanup = fixture.service.stopCount }
+        fixture.viewModel.disableAiModule()
+        advanceUntilIdle()
+        assertEquals(1, stopRequestsBeforeCleanup)
+        assertFalse(fixture.viewModel.state.value.aiModule!!.enabled)
+    }
+
+    @Test
+    fun uninstallRetainsModelAndBlocksModelWorkUntilExplicitReinstallation() = runTest {
+        val fixture = fixture(testScope())
+        fixture.viewModel.uninstallModule(manifest.id)
+        advanceUntilIdle()
+        assertFalse(fixture.viewModel.state.value.aiModule!!.installed)
+        fixture.viewModel.prepareAiModule()
+        fixture.viewModel.downloadModel()
+        advanceUntilIdle()
+        assertEquals(0, fixture.models.verifyCount)
+        assertEquals(0, fixture.models.enqueueCount)
+        assertTrue(modelFile.exists())
+        fixture.viewModel.installModule(manifest.id)
+        advanceUntilIdle()
+        assertTrue(fixture.viewModel.state.value.aiModule!!.installed)
+        assertFalse(fixture.viewModel.state.value.aiModule!!.enabled)
+    }
+
+    @Test
+    fun disablingDuringStartupVerificationCancelsTheOldStartRequest() = runTest {
+        val fixture = fixture(testScope())
+        fixture.registry.setEnabled(true)
+        fixture.models.ready()
+        val releaseVerification = CompletableDeferred<Unit>()
+        fixture.models.verificationGate = releaseVerification
+        fixture.viewModel.startNode()
+        runCurrent()
+        assertEquals(1, fixture.models.verifyCount)
+        fixture.viewModel.disableAiModule()
+        advanceUntilIdle()
+        fixture.viewModel.uninstallModule(manifest.id)
+        advanceUntilIdle()
+        fixture.viewModel.installModule(manifest.id)
+        fixture.viewModel.enableAiModule()
+        advanceUntilIdle()
+        releaseVerification.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(0, fixture.service.startCount)
     }
 
     @Test
@@ -229,6 +284,19 @@ private class FakeUiRegistry(manifest: ModuleManifest) : ModuleRegistry {
     override suspend fun disable(id: String): RegistryResult = RegistryResult.Changed.also {
         setEnabled(false)
     }
+    override suspend fun uninstall(id: String): RegistryResult {
+        if (mutable.value.modules.any { it.manifest.id == id && it.enabled }) return RegistryResult.Rejected("disable_before_uninstall")
+        mutable.value = mutable.value.copy(modules = mutable.value.modules.map {
+            if (it.manifest.id == id) it.copy(installed = false, enabled = false) else it
+        })
+        return RegistryResult.Changed
+    }
+    override suspend fun reinstallBuiltin(id: String): RegistryResult {
+        mutable.value = mutable.value.copy(modules = mutable.value.modules.map {
+            if (it.manifest.id == id) it.copy(installed = true, enabled = false) else it
+        })
+        return RegistryResult.Changed
+    }
     override suspend fun recordCrash(id: String, atMillis: Long) = Unit
     override suspend fun exitSafeMode() = Unit
 }
@@ -240,6 +308,8 @@ private class FakeUiModelRepository(
     override val state: StateFlow<ModelDownloadState> = mutable
     var enqueueCount = 0
     var cancelCount = 0
+    var verifyCount = 0
+    var verificationGate: CompletableDeferred<Unit>? = null
 
     fun ready() {
         mutable.value = ModelDownloadState.Ready(file)
@@ -252,8 +322,10 @@ private class FakeUiModelRepository(
         cancelCount += 1
     }
     override suspend fun downloadNow() = Unit
-    override suspend fun verifiedModelFile(): File? = file.takeIf {
-        mutable.value is ModelDownloadState.Ready
+    override suspend fun verifiedModelFile(): File? {
+        verifyCount += 1
+        verificationGate?.await()
+        return file.takeIf { mutable.value is ModelDownloadState.Ready }
     }
 }
 
@@ -262,9 +334,11 @@ private class FakeUiController : AiNodeController {
     override val state: StateFlow<AiNodeState> = mutableState
     override val metrics: StateFlow<NodeMetrics> = MutableStateFlow(NodeMetrics())
     var lastMessages: List<ChatMessage> = emptyList()
+    var onStop: () -> Unit = {}
 
     override suspend fun start(): StartResult = StartResult.Started
     override suspend fun stop(reason: StopReason) {
+        onStop()
         mutableState.value = AiNodeState.Stopped
     }
     override fun chat(

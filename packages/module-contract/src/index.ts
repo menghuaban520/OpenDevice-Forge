@@ -5,5 +5,18 @@ export type {
   ModuleValidationError,
   ModuleValidationResult,
 } from "./validate";
-export { verifyPackageIntegrity } from "./integrity";
-export type { PackageIntegrityResult } from "./integrity";
+export {
+  canonicalizeUnsignedManifest,
+  createModulePackageSignaturePayload,
+  planModulePackageInstall,
+  verifyModulePackage,
+  verifyPackageIntegrity,
+} from "./integrity";
+export type {
+  ModulePackageComponents,
+  ModulePackageInstallPlan,
+  ModulePackageLimits,
+  ModulePackageVerificationOptions,
+  ModulePackageVerificationResult,
+  PackageIntegrityResult,
+} from "./integrity";

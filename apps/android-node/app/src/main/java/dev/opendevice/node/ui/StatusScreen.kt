@@ -39,11 +39,11 @@ fun StatusScreen(
             KeyValueRow("可分配空间", facts.allocatableStorageLabel)
         }
 
-        InfoCard("电源与温度") {
+        InfoCard("电源") {
             KeyValueRow("电量", facts.batteryPercentLabel)
-            KeyValueRow("电池温度", facts.batteryTemperatureLabel)
-            KeyValueRow("系统热状态", facts.thermalLabel)
         }
+
+        PerformancePanel(state, actions)
 
         InfoCard("模型与服务") {
             KeyValueRow("模型", state.modelState.statusLabel())
@@ -54,14 +54,7 @@ fun StatusScreen(
                 monospace = state.endpoint != null,
             )
             KeyValueRow("模型载入", state.metrics.modelLoadMillis.millisLabel())
-            KeyValueRow("首字延迟", state.metrics.firstTokenMillis.millisLabel())
-            KeyValueRow(
-                "输出速度",
-                state.metrics.outputTokensPerSecond?.let {
-                    String.format(Locale.US, "%.2f tokens/s", it)
-                } ?: "未测量",
-            )
-            KeyValueRow("峰值 RSS", state.metrics.peakRssBytes.bytesLabel())
+            KeyValueRow("峰值应用内存（PSS）", state.metrics.peakRssBytes.bytesLabel())
         }
 
         InfoCard("最近请求") {

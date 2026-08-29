@@ -1,0 +1,33 @@
+{
+  "manifestVersion": "1",
+  "id": "dev.opendevice.module.device-info",
+  "name": "设备信息",
+  "summary": "查看本机实际读取到的设备、内存与电源信息，不需要 AI 模型。",
+  "version": "0.1.0",
+  "publisher": "OpenDevice Forge",
+  "license": "MIT",
+  "kernel": { "min": "0.1.0", "maxExclusive": "1.0.0" },
+  "platform": {
+    "android": { "minSdk": 28, "abis": ["arm64-v8a"] },
+    "hardware": { "minMemoryBytes": null, "minStorageBytes": null }
+  },
+  "source": { "kind": "builtin" },
+  "integrity": {
+    "kind": "host-apk", "sha256": null, "publisherKeySha256": null,
+    "publisherSignature": null, "rollbackVersion": null
+  },
+  "runtime": {
+    "kind": "builtin", "entry": "device-info", "foregroundService": false,
+    "isolatedProcess": false, "requiresRootBroker": false, "companionPackage": null
+  },
+  "audience": "general",
+  "risk": "low",
+  "permissions": ["device.read"],
+  "capabilities": ["device.inspect"],
+  "contributes": [
+    { "id": "device-info.home", "type": "navigation", "label": "设备信息", "defaultPlacement": "sidebar" }
+  ],
+  "configuration": { "fields": [] },
+  "service": null,
+  "protected": false
+}

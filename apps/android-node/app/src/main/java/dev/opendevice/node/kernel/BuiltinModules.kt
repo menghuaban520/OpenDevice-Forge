@@ -10,8 +10,14 @@ object BuiltinModules {
         isLenient = false
     }
 
-    fun aiNode(context: Context): ModuleManifest = context.assets
-        .open(AI_NODE_ASSET)
+    const val DEVICE_INFO_ID = "dev.opendevice.module.device-info"
+
+    fun aiNode(context: Context): ModuleManifest = read(context, AI_NODE_ASSET)
+
+    fun deviceInfo(context: Context): ModuleManifest = read(context, "device-info.json")
+
+    private fun read(context: Context, asset: String): ModuleManifest = context.assets
+        .open(asset)
         .bufferedReader(Charsets.UTF_8)
         .use { reader ->
             strictJson.decodeFromString<ModuleManifest>(reader.readText())

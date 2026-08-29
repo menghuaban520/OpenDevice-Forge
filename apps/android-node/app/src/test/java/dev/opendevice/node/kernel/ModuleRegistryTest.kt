@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,7 +44,45 @@ class ModuleRegistryTest {
         val module = registry.snapshot.value.modules.single()
         assertTrue(module.installed)
         assertFalse(module.enabled)
-        assertTrue(module.manifest.protected)
+        assertFalse(module.manifest.protected)
+    }
+
+    @Test
+    fun aiIsAnOrdinaryModuleAndRepeatedCrashesDisableIt() = runBlocking {
+        val registry = InMemoryModuleRegistry(clock = { 0L })
+        registry.installBuiltin(aiManifest)
+        registry.enable(aiManifest.id)
+        repeat(3) { registry.recordCrash(aiManifest.id, it.toLong()) }
+
+        assertTrue(registry.snapshot.value.safeMode)
+        assertFalse(registry.snapshot.value.modules.single().enabled)
+        assertEquals(RegistryResult.Rejected("safe_mode"), registry.enable(aiManifest.id))
+    }
+
+    @Test
+    fun reopeningDoesNotReinstallOrEnableAnUninstalledBuiltin() = runBlocking {
+        val directory = Files.createTempDirectory("opendevice-uninstalled-registry").toFile()
+        val job = SupervisorJob()
+        val store = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(job + Dispatchers.IO),
+            produceFile = { directory.resolve("registry.preferences_pb") },
+        )
+        try {
+            val uninstalled = ModuleRegistrySnapshot(
+                modules = listOf(ModuleRecord(aiManifest, installed = false, enabled = false)),
+            )
+            store.edit { preferences ->
+                preferences[stringPreferencesKey("module_registry_v1")] =
+                    Json.encodeToString(ModuleRegistrySnapshot.serializer(), uninstalled)
+            }
+            val registry = DataStoreModuleRegistry.create(store, listOf(aiManifest), compatibleHost) { 0L }
+            assertFalse(registry.snapshot.value.modules.single().installed)
+            assertEquals(RegistryResult.Rejected("not_installed"), registry.enable(aiManifest.id))
+            assertFalse(registry.snapshot.value.modules.single().enabled)
+        } finally {
+            job.cancelAndJoin()
+            directory.deleteRecursively()
+        }
     }
 
     @Test
@@ -126,6 +165,50 @@ class ModuleRegistryTest {
                 "Expected compatibility error $code",
             )
         }
+    }
+
+    @Test
+    fun uninstallRequiresDisabledModuleAndReinstallNeverEnablesIt() = runBlocking {
+        val registry = InMemoryModuleRegistry(clock = { 0L })
+        registry.installBuiltin(aiManifest)
+        registry.enable(aiManifest.id)
+        assertEquals(RegistryResult.Rejected("disable_before_uninstall"), registry.uninstall(aiManifest.id))
+        assertTrue(registry.snapshot.value.modules.single().installed)
+        registry.disable(aiManifest.id)
+        assertIs<RegistryResult.Changed>(registry.uninstall(aiManifest.id))
+        assertFalse(registry.snapshot.value.modules.single().installed)
+        assertEquals(RegistryResult.Rejected("not_installed"), registry.enable(aiManifest.id))
+        assertIs<RegistryResult.Changed>(registry.reinstallBuiltin(aiManifest.id))
+        assertTrue(registry.snapshot.value.modules.single().installed)
+        assertFalse(registry.snapshot.value.modules.single().enabled)
+        assertTrue(registry.snapshot.value.audit.any { it.action == ModuleAuditAction.UNINSTALL })
+    }
+
+    @Test
+    fun protectedAndUnknownModulesCannotBeUninstalled() = runBlocking {
+        val registry = InMemoryModuleRegistry(clock = { 0L })
+        registry.installBuiltin(aiManifest.copy(protected = true))
+        assertEquals(RegistryResult.Rejected("protected_module"), registry.uninstall(aiManifest.id))
+        assertEquals(RegistryResult.Rejected("unknown_module"), registry.uninstall("missing"))
+        assertEquals(RegistryResult.Rejected("unknown_module"), registry.reinstallBuiltin("missing"))
+    }
+
+    @Test
+    fun failedPersistenceDoesNotPretendUninstallSucceeded() = runBlocking {
+        val registry = object : BaseModuleRegistry(
+            ModuleRegistrySnapshot(listOf(ModuleRecord(aiManifest, installed = true, enabled = false))),
+            compatibleHost,
+            { 0L },
+        ) {
+            override suspend fun persistSnapshot(snapshot: ModuleRegistrySnapshot) {
+                throw java.io.IOException("test storage unavailable")
+            }
+        }
+        var failed = false
+        try { registry.uninstall(aiManifest.id) } catch (_: java.io.IOException) { failed = true }
+        assertTrue(failed)
+        assertTrue(registry.snapshot.value.modules.single().installed)
+        assertTrue(registry.snapshot.value.audit.isEmpty())
     }
 
     @Test

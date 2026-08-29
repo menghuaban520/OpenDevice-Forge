@@ -33,6 +33,7 @@ fun ChatScreen(
             title = "对话",
             subtitle = "直接测试手机里的模型；电脑远程请求也共用同一个推理核心。",
         )
+        PerformancePanel(state, actions)
         if (state.chat.messages.isEmpty()) {
             InfoCard("新对话") {
                 Text(

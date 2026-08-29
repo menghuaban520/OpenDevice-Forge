@@ -17,6 +17,10 @@ set(GGML_LLAMAFILE OFF CACHE BOOL "" FORCE)
 set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "" FORCE)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 
+# Keep native inference representative in the installable debug APK, while
+# retaining symbols and assertions. No device-specific ISA or clock override.
+add_compile_options("$<$<CONFIG:Debug>:-O3>")
+
 add_subdirectory(third_party/llama.cpp EXCLUDE_FROM_ALL)
 
 add_library(opendevice_llama SHARED

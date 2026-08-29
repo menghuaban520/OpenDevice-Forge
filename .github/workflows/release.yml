@@ -9,8 +9,24 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Match tag to desktop and Android versions
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          desktop_version="$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
+          android_version="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' apps/android-node/app/build.gradle.kts)"
+          test "$tag_version" = "$desktop_version"
+          test "$tag_version" = "$android_version"
+
   build:
     name: Build ${{ matrix.label }} package
+    needs: validate
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -46,7 +62,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: OpenDevice Forge ${{ github.ref_name }}
           releaseBody: |
-            Automated unsigned preview build. Verify the checksum before use.
+            Automated preview artifacts. Verify the checksum before use.
+            Desktop packages are not Developer ID / Authenticode signed or notarized.
+            The Android arm64 APK uses standard debug signing and is not a production release.
             This draft is not a compatibility claim for any specific phone.
           releaseDraft: true
           prerelease: false
@@ -78,4 +96,62 @@ jobs:
         with:
           name: checksums-${{ matrix.artifact }}
           path: checksums-${{ matrix.artifact }}.txt
+          if-no-files-found: error
+
+  android:
+    name: Build Android arm64 preview
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source and pinned inference engine
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            apps/android-node/*.gradle.kts
+            apps/android-node/gradle.properties
+            apps/android-node/gradle/wrapper/gradle-wrapper.properties
+            apps/android-node/app/*.gradle.kts
+      - name: Install pinned Android toolchain
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;3.31.6"
+      - name: Test, lint, and build installable debug APK
+        run: >-
+          apps/android-node/gradlew -p apps/android-node
+          :app:testDebugUnitTest
+          :app:lintDebug
+          :app:assembleDebug
+      - name: Name Android artifact and checksum
+        shell: bash
+        run: |
+          artifact="OpenDevice-Node-${GITHUB_REF_NAME}-android-arm64-debug.apk"
+          cp apps/android-node/app/build/outputs/apk/debug/app-debug.apk "$artifact"
+          sha256sum "$artifact" > checksums-android.txt
+      - name: Attach Android preview to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release upload "$GITHUB_REF_NAME"
+          "OpenDevice-Node-${GITHUB_REF_NAME}-android-arm64-debug.apk"
+          checksums-android.txt
+          --clobber
+      - name: Preserve Android preview as workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-arm64-preview
+          path: |
+            OpenDevice-Node-*-android-arm64-debug.apk
+            checksums-android.txt
           if-no-files-found: error

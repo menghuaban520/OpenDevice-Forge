@@ -1,4 +1,5 @@
 import fixture from "../fixtures/ai-node.json" with { type: "json" };
+import deviceInfo from "../fixtures/device-info.json" with { type: "json" };
 import { describe, expect, it } from "vitest";
 import {
   validateModuleManifest,
@@ -23,6 +24,12 @@ const expectError = (
 };
 
 describe("validateModuleManifest", () => {
+  it("accepts device info as an ordinary module without AI or networking", () => {
+    expect(validateModuleManifest(deviceInfo, host)).toEqual({ ok: true, errors: [] });
+    expect(deviceInfo.permissions).toEqual(["device.read"]);
+    expect(deviceInfo.service).toBeNull();
+    expect(deviceInfo.protected).toBe(false);
+  });
   it("accepts the built-in AI node fixture", () => {
     expect(validateModuleManifest(fixture, host)).toEqual({ ok: true, errors: [] });
   });

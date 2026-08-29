@@ -43,6 +43,10 @@ import androidx.compose.ui.window.Dialog
 data class NodeAppActions(
     val enableAiModule: () -> Unit,
     val disableAiModule: () -> Unit,
+    val enableModule: (String) -> Unit,
+    val disableModule: (String) -> Unit,
+    val installModule: (String) -> Unit,
+    val uninstallModule: (String) -> Unit,
     val downloadModel: () -> Unit,
     val cancelDownload: () -> Unit,
     val startNode: () -> Unit,
@@ -52,6 +56,10 @@ data class NodeAppActions(
     val setPort: (Int) -> Unit,
     val setMaxOutputTokens: (Int) -> Unit,
     val setThreads: (Int) -> Unit,
+    val setTemperatureLimitC: (Int) -> Unit,
+    val setGenerationTimeoutSeconds: (Int) -> Unit,
+    val setShowPerformance: (Boolean) -> Unit,
+    val setPerformancePreset: (dev.opendevice.node.settings.PerformancePreset) -> Unit,
     val requestLanEnable: () -> Unit,
     val cancelLanEnable: () -> Unit,
     val confirmLanEnable: () -> Unit,
@@ -70,17 +78,21 @@ fun NodeApp(
     actions: NodeAppActions,
     onNavigate: (NodeDestination) -> Unit,
 ) {
+    val activeDestination = if (destination.isAi && state.aiModule?.installed != true) {
+        NodeDestination.MODULES
+    } else destination
     Scaffold(
         bottomBar = {
             NavigationBar {
-                NodeDestination.entries.forEach { item ->
+                NodeDestination.hostEntries.forEach { item ->
                     NavigationBarItem(
-                        selected = destination == item,
+                        selected = activeDestination == item || (activeDestination.isAi && item == NodeDestination.MODULES),
                         onClick = { onNavigate(item) },
                         icon = {
                             Icon(
                                 imageVector = when (item) {
                                     NodeDestination.NODE -> Icons.Outlined.Home
+                                    NodeDestination.DEVICE -> Icons.Outlined.Info
                                     NodeDestination.CHAT -> Icons.Outlined.Email
                                     NodeDestination.MODULES -> Icons.Outlined.Settings
                                     NodeDestination.CONNECTIONS -> Icons.Outlined.Share
@@ -102,12 +114,24 @@ fun NodeApp(
                 .padding(padding),
             color = MaterialTheme.colorScheme.background,
         ) {
-            when (destination) {
-                NodeDestination.NODE -> NodeScreen(state, actions)
-                NodeDestination.CHAT -> ChatScreen(state, actions)
-                NodeDestination.MODULES -> ModulesScreen(state, actions)
-                NodeDestination.CONNECTIONS -> ConnectionsScreen(state, actions)
-                NodeDestination.STATUS -> StatusScreen(state, actions)
+            Column {
+                if (activeDestination.isAi) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        NodeDestination.aiEntries.forEach { item ->
+                            TextButton(onClick = { onNavigate(item) }) {
+                                Text(item.label, color = if (activeDestination == item) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+                when (activeDestination) {
+                    NodeDestination.NODE -> NodeScreen(state, actions)
+                    NodeDestination.CHAT -> ChatScreen(state, actions)
+                    NodeDestination.MODULES -> ModulesScreen(state, actions, onNavigate)
+                    NodeDestination.DEVICE -> DeviceInfoScreen(state, onNavigate)
+                    NodeDestination.CONNECTIONS -> ConnectionsScreen(state, actions)
+                    NodeDestination.STATUS -> StatusScreen(state, actions)
+                }
             }
         }
     }
@@ -319,7 +343,7 @@ internal fun SafeModeBanner(onExit: (() -> Unit)? = null) {
         ) {
             Text("连续启动失败保护已开启", style = MaterialTheme.typography.titleSmall)
             Text(
-                "第三方模块已停用；请先检查状态，再手动退出保护。",
+                "普通模块已停用；请先检查状态，再手动退出保护。",
                 style = MaterialTheme.typography.bodySmall,
             )
             onExit?.let { TextButton(onClick = it) { Text("退出安全模式") } }

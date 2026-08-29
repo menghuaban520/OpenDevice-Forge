@@ -49,6 +49,7 @@ class HttpModelDownloadRepository(
     override fun cancel() {
         cancelRequested.set(true)
         workScheduler.cancel(descriptor.id)
+        if (mutableState.value is ModelDownloadState.Queued) mutableState.value = ModelDownloadState.Missing
     }
 
     override suspend fun downloadNow() {
@@ -73,7 +74,7 @@ class HttpModelDownloadRepository(
 
     override suspend fun verifiedModelFile(): File? = downloadMutex.withLock {
         withContext(ioDispatcher) {
-            if (verifyFile(finalFile)) {
+            if (verifyFile(finalFile, respectDownloadCancellation = false)) {
                 mutableState.value = ModelDownloadState.Ready(finalFile)
                 finalFile
             } else {
@@ -274,16 +275,17 @@ class HttpModelDownloadRepository(
         }
     }
 
-    private suspend fun verifyFile(file: File): Boolean =
+    private suspend fun verifyFile(file: File, respectDownloadCancellation: Boolean = true): Boolean =
         file.isFile && file.length() == descriptor.sizeBytes &&
-            sha256(file).equals(descriptor.sha256, ignoreCase = true)
+            sha256(file, respectDownloadCancellation).equals(descriptor.sha256, ignoreCase = true)
 
-    private suspend fun sha256(file: File): String {
+    private suspend fun sha256(file: File, respectDownloadCancellation: Boolean = true): String {
         val digest = MessageDigest.getInstance("SHA-256")
         FileInputStream(file).use { input ->
             val buffer = ByteArray(COPY_BUFFER_BYTES)
             while (true) {
-                checkCancellation()
+                currentCoroutineContext().ensureActive()
+                if (respectDownloadCancellation) checkCancellation()
                 val count = input.read(buffer)
                 if (count < 0) break
                 if (count > 0) digest.update(buffer, 0, count)

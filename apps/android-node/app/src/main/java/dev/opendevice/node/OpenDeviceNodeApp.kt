@@ -40,7 +40,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 
@@ -93,7 +92,7 @@ class OpenDeviceNodeApp : Application() {
         aiModuleId = aiModule.id
         moduleRegistry = DataStoreModuleRegistry.create(
             context = this,
-            builtins = listOf(aiModule),
+            builtins = listOf(BuiltinModules.deviceInfo(this), aiModule),
             clock = clock,
         )
         moduleStartupGuard = SharedPreferencesModuleStartupGuard(
@@ -123,9 +122,6 @@ class OpenDeviceNodeApp : Application() {
             },
             workScheduler = WorkManagerModelWorkScheduler(WorkManager.getInstance(this)),
         )
-        applicationScope.launch {
-            modelDownloadRepository.verifiedModelFile()
-        }
         nodeSettingsRepository = DataStoreNodeSettingsRepository.create(this)
         nodeAddressResolver = AndroidNodeAddressResolver(this)
         val activityManager = getSystemService(ActivityManager::class.java)
@@ -160,6 +156,7 @@ class OpenDeviceNodeApp : Application() {
                     ?.times(1_024L)
             },
             socketHttpServer = socketHttpServer,
+            nodeSettings = { nodeSettingsRepository.settings.value },
             serverConfig = {
                 val settings = nodeSettingsRepository.settings.value
                 when (val resolved = nodeAddressResolver.resolve(settings.lanEnabled)) {

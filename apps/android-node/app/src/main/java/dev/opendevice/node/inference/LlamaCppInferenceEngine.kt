@@ -3,6 +3,11 @@ package dev.opendevice.node.inference
 import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,18 +45,38 @@ class LlamaCppInferenceEngine(
         lifecycleMutex.withLock {
             check(nativeHandle == 0L) { "model_already_loaded" }
             mutableState.value = InferenceState.Loading
+            val loadingContext = currentCoroutineContext()
+            var acquiredHandle = 0L
             try {
-                val handle = withContext(generationDispatcher) {
-                    nativeLoad(model.absolutePath, contextSize, threads)
+                withContext(generationDispatcher) {
+                    nativeLibraryLoaded
+                    // Assign before the dispatcher handoff: prompt cancellation
+                    // must not discard a native handle that still needs closing.
+                    acquiredHandle = nativeLoad(
+                        model.absolutePath, contextSize, threads,
+                        LoadControl { loadingContext.isActive },
+                    )
                 }
+                val handle = acquiredHandle
                 check(handle != 0L) { "native_model_load_failed" }
                 nativeHandle = handle
                 loadedModelPath = model.absolutePath
                 mutableState.value = InferenceState.Ready(model.absolutePath)
             } catch (error: Throwable) {
-                mutableState.value = InferenceState.Failed(
-                    error.message ?: "native_model_load_failed",
-                )
+                // Keep the outer cleanup on this dispatcher. Switching back from
+                // NonCancellable + another dispatcher can itself rethrow cancellation.
+                // https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/with-context.html
+                withContext(NonCancellable) {
+                    withContext(generationDispatcher) {
+                        if (acquiredHandle != 0L) nativeClose(acquiredHandle)
+                    }
+                    mutableState.value = if (error is CancellationException || !loadingContext.isActive) {
+                        InferenceState.Unloaded
+                    } else {
+                        InferenceState.Failed(error.message ?: "native_model_load_failed")
+                    }
+                }
+                loadingContext.ensureActive()
                 throw error
             }
         }
@@ -164,7 +189,11 @@ class LlamaCppInferenceEngine(
         fun onToken(text: String, tokenCount: Int)
     }
 
-    private external fun nativeLoad(path: String, contextSize: Int, threads: Int): Long
+    private fun interface LoadControl {
+        fun shouldContinue(): Boolean
+    }
+
+    private external fun nativeLoad(path: String, contextSize: Int, threads: Int, control: LoadControl): Long
 
     private external fun nativeRenderChat(
         handle: Long,
@@ -191,7 +220,7 @@ class LlamaCppInferenceEngine(
         private const val NATIVE_TOKENIZE_FAILED = -5
         private const val NATIVE_CALLBACK_FAILED = -6
 
-        init {
+        private val nativeLibraryLoaded by lazy {
             System.loadLibrary("opendevice_llama")
         }
     }

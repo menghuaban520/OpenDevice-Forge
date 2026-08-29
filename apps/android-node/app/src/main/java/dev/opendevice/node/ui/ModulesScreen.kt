@@ -1,81 +1,91 @@
 package dev.opendevice.node.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ModulesScreen(
-    state: NodeUiState,
-    actions: NodeAppActions,
-) {
+fun ModulesScreen(state: NodeUiState, actions: NodeAppActions, onNavigate: (NodeDestination) -> Unit) {
+    var uninstallId by rememberSaveable { mutableStateOf<String?>(null) }
     ScreenColumn(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        ScreenTitle(
-            title = "模块",
-            subtitle = "像管理 App 一样查看能力、来源和权限；启用与关闭仍由手机控制。",
-        )
+        ScreenTitle("模块", "OpenDevice Forge · 按需装入能力，AI 只是其中之一。")
         if (state.modules.safeMode) SafeModeBanner(actions.exitSafeMode)
+        state.blockingMessage?.let { MessageSurface(it, true, actions.clearMessages) }
+        state.noticeMessage?.let { MessageSurface(it, false, actions.clearMessages) }
+        if (state.modules.modules.isEmpty()) Text("未读取到模块目录，请重新打开应用。")
 
-        val module = state.aiModule
-        if (module == null) {
-            InfoCard("本地 AI 节点") {
-                Text("没有读取到内置模块清单。", color = MaterialTheme.colorScheme.error)
-            }
-        } else {
-            InfoCard(module.manifest.name) {
-                Text(
-                    module.manifest.summary,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                KeyValueRow("状态", if (module.enabled) "已启用" else "已关闭")
-                KeyValueRow("版本", module.manifest.version)
-                KeyValueRow("发布者", module.manifest.publisher)
-                KeyValueRow("来源", module.manifest.source.kind.value)
-                KeyValueRow(
-                    "保护模块",
-                    if (module.manifest.protected) "是（保留恢复入口）" else "否",
-                )
-                Text("声明权限", style = MaterialTheme.typography.titleSmall)
-                module.manifest.permissions.forEach { permission ->
-                    Text(
-                        permission.value,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    )
-                }
-                if (module.enabled) {
-                    OutlinedButton(onClick = actions.disableAiModule) {
-                        Text("关闭模块")
+        state.modules.modules.forEach { module ->
+            val manifest = module.manifest
+            val destination = moduleDestination(module)
+            InfoCard(manifest.name) {
+                Text(manifest.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                KeyValueRow("状态", when { !module.installed -> "未安装"; module.enabled -> "已启用"; else -> "已关闭" })
+                KeyValueRow("版本 / 发布者", "${manifest.version} · ${manifest.publisher}")
+                KeyValueRow("来源", if (manifest.source.kind.value == "builtin") "应用内置 · 随安装包提供" else manifest.source.kind.value)
+                KeyValueRow("适用平台", "Android API ${manifest.platform.android.minSDK}+ · ${manifest.platform.android.abis.joinToString { it.value }}")
+                Text("声明权限：${manifest.permissions.joinToString { it.value }}", style = MaterialTheme.typography.bodySmall)
+                if (destination == null) Text("此模块的运行入口尚未实现", color = MaterialTheme.colorScheme.error)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when {
+                        !module.installed -> Button(
+                            onClick = { actions.installModule(manifest.id) },
+                            enabled = destination != null,
+                            modifier = Modifier.testTag("module:${manifest.id}:install"),
+                        ) { Text("安装") }
+                        module.enabled -> OutlinedButton(
+                            onClick = { actions.disableModule(manifest.id) },
+                            modifier = Modifier.testTag("module:${manifest.id}:disable"),
+                        ) { Text("关闭") }
+                        else -> Button(
+                            onClick = { actions.enableModule(manifest.id) },
+                            enabled = destination != null && (!state.modules.safeMode || manifest.protected),
+                            modifier = Modifier.testTag("module:${manifest.id}:enable"),
+                        ) { Text("启用") }
                     }
-                } else {
-                    Button(onClick = actions.enableAiModule) { Text("启用模块") }
+                    if (module.installed && destination != null) {
+                        OutlinedButton(onClick = { onNavigate(destination) }, modifier = Modifier.testTag("module:${manifest.id}:open")) { Text("打开") }
+                    }
+                    if (module.installed && !manifest.protected) {
+                        TextButton(
+                            onClick = { uninstallId = manifest.id },
+                            enabled = !module.enabled,
+                            modifier = Modifier.testTag("module:${manifest.id}:uninstall"),
+                        ) { Text("卸载") }
+                    }
                 }
+                if (module.enabled) Text("卸载前请先关闭模块。", style = MaterialTheme.typography.bodySmall)
             }
         }
-
-        InfoCard("安装更多模块") {
+        InfoCard("获取更多模块") {
             Text("尚未提供在线模块市场", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "GitHub 固定版本安装、模块搜索、制作器和脚本沙箱会在后续版本分别实现；当前没有不可用的搜索或安装按钮。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("当前目录只包含随应用提供的模块。电脑和手机将分别安装兼容模块；在线下载、来源与签名校验仍在开发，尚未开放第三方代码安装。")
         }
-
-        InfoCard("模块安全边界") {
-            androidx.compose.foundation.layout.Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("模块默认关闭，权限由清单声明。")
-                Text("连续启动失败会进入安全模式，并停用非保护模块。")
-                Text("本版本不会执行 su，也不会从未知 GitHub 分支自动更新。")
-            }
+        InfoCard("模块与内核") {
+            Text("安装后默认关闭。卸载内置模块会移除其使用入口，重启不会重新安装；内置代码仍随 APK 保留，本地数据不会删除。")
+            Text("AI 连续启动失败也会被停用。内核的模块管理与恢复入口不依赖 AI。")
         }
     }
+    val pending = state.modules.modules.firstOrNull { it.manifest.id == uninstallId && it.installed }
+    if (pending != null) AlertDialog(
+        onDismissRequest = { uninstallId = null },
+        title = { Text("卸载${pending.manifest.name}？") },
+        text = { Text("移除模块入口并保留本地模型、设置等数据；内置代码仍在 APK 中。可从此目录重新安装，安装后需要手动启用。") },
+        confirmButton = { TextButton(onClick = { actions.uninstallModule(pending.manifest.id); uninstallId = null }, enabled = !pending.enabled) { Text("确认卸载") } },
+        dismissButton = { TextButton(onClick = { uninstallId = null }) { Text("取消") } },
+    )
 }

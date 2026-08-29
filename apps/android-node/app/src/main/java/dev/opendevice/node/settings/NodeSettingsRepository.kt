@@ -20,6 +20,10 @@ interface NodeSettingsRepository {
     suspend fun setMaxOutputTokens(value: Int, serviceRunning: Boolean): SettingResult
 
     suspend fun setThreads(value: Int, serviceRunning: Boolean): SettingResult
+    suspend fun setTemperatureLimitC(value: Int, serviceRunning: Boolean): SettingResult
+    suspend fun setGenerationTimeoutSeconds(value: Int, serviceRunning: Boolean): SettingResult
+    suspend fun setShowPerformance(value: Boolean): SettingResult
+    suspend fun setPerformancePreset(value: PerformancePreset, serviceRunning: Boolean): SettingResult
 }
 
 abstract class BaseNodeSettingsRepository(
@@ -30,6 +34,28 @@ abstract class BaseNodeSettingsRepository(
     final override val settings: StateFlow<NodeSettings> = mutableSettings.asStateFlow()
 
     protected abstract suspend fun persist(settings: NodeSettings)
+
+    final override suspend fun setTemperatureLimitC(value: Int, serviceRunning: Boolean): SettingResult {
+        if (value !in 38..43) return SettingResult.Rejected("温度上限范围必须是 38–43°C")
+        return mutateWhenStopped(serviceRunning) { it.copy(temperatureLimitC = value) }
+    }
+
+    final override suspend fun setGenerationTimeoutSeconds(value: Int, serviceRunning: Boolean): SettingResult {
+        if (value !in 15..120) return SettingResult.Rejected("单次时限范围必须是 15–120 秒")
+        return mutateWhenStopped(serviceRunning) { it.copy(generationTimeoutSeconds = value) }
+    }
+
+    final override suspend fun setShowPerformance(value: Boolean): SettingResult =
+        mutateWhenStopped(false) { it.copy(showPerformance = value) }
+
+    final override suspend fun setPerformancePreset(value: PerformancePreset, serviceRunning: Boolean): SettingResult =
+        mutateWhenStopped(serviceRunning) {
+            when (value) {
+                PerformancePreset.COOL -> it.copy(threads = 2, maxOutputTokens = 128, temperatureLimitC = 40, generationTimeoutSeconds = 60)
+                PerformancePreset.BALANCED -> it.copy(threads = 3, maxOutputTokens = 256, temperatureLimitC = 42, generationTimeoutSeconds = 60)
+                PerformancePreset.FAST -> it.copy(threads = 4, maxOutputTokens = 256, temperatureLimitC = 43, generationTimeoutSeconds = 60)
+            }
+        }
 
     final override suspend fun setPort(
         value: Int,

@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -63,17 +64,21 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val state by nodeViewModel.state.collectAsStateWithLifecycle()
-            var destination by rememberSaveable { mutableStateOf(NodeDestination.NODE) }
+            var destination by rememberSaveable { mutableStateOf(NodeDestination.MODULES) }
             var modelSetupSkipped by rememberSaveable { mutableStateOf(false) }
 
+            LaunchedEffect(destination, state.aiModule?.installed, state.modules.safeMode) {
+                if (destination.isAi) nodeViewModel.prepareAiModule()
+            }
+
             MaterialTheme {
-                if (shouldShowModelSetup(state.modelState, modelSetupSkipped)) {
+                if (shouldShowModelSetup(state.modelState, modelSetupSkipped, destination, state.aiModule?.installed == true)) {
                     ModelSetupScreen(
                         state = state,
                         recommendedModel = nodeApplication.recommendedModel,
                         onDownload = nodeViewModel::downloadModel,
                         onCancelDownload = nodeViewModel::cancelDownload,
-                        onSkip = { modelSetupSkipped = true },
+                        onSkip = { modelSetupSkipped = true; destination = NodeDestination.MODULES },
                     )
                 } else NodeApp(
                     state = state,
@@ -81,6 +86,10 @@ class MainActivity : ComponentActivity() {
                     actions = NodeAppActions(
                         enableAiModule = nodeViewModel::enableAiModule,
                         disableAiModule = nodeViewModel::disableAiModule,
+                        enableModule = nodeViewModel::enableModule,
+                        disableModule = nodeViewModel::disableModule,
+                        installModule = nodeViewModel::installModule,
+                        uninstallModule = nodeViewModel::uninstallModule,
                         downloadModel = nodeViewModel::downloadModel,
                         cancelDownload = nodeViewModel::cancelDownload,
                         startNode = {
@@ -100,6 +109,10 @@ class MainActivity : ComponentActivity() {
                         setPort = nodeViewModel::setPort,
                         setMaxOutputTokens = nodeViewModel::setMaxOutputTokens,
                         setThreads = nodeViewModel::setThreads,
+                        setTemperatureLimitC = nodeViewModel::setTemperatureLimitC,
+                        setGenerationTimeoutSeconds = nodeViewModel::setGenerationTimeoutSeconds,
+                        setShowPerformance = nodeViewModel::setShowPerformance,
+                        setPerformancePreset = nodeViewModel::setPerformancePreset,
                         requestLanEnable = nodeViewModel::requestLanEnable,
                         cancelLanEnable = nodeViewModel::cancelLanEnable,
                         confirmLanEnable = nodeViewModel::confirmLanEnable,

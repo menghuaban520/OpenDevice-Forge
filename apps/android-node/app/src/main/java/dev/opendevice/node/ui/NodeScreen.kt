@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import dev.opendevice.node.ai.AiNodeState
 import dev.opendevice.node.model.ModelDownloadState
+import dev.opendevice.node.settings.PerformancePreset
 import java.util.Locale
 
 @Composable
@@ -55,14 +56,25 @@ fun NodeScreen(
             PrimaryNodeAction(state, actions)
         }
 
+        PerformancePanel(state, actions)
+
         InfoCard("模型") {
             KeyValueRow("固定模型", state.modelDisplayName.ifBlank { "未读取" })
             ModelStateContent(state.modelState, actions)
         }
 
-        InfoCard("生成设置") {
+        InfoCard("性能与保护") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PerformancePreset.entries.forEach { preset ->
+                    OutlinedButton(
+                        onClick = { actions.setPerformancePreset(preset) },
+                        enabled = !state.serviceRunning,
+                    ) { Text(preset.label) }
+                }
+            }
+            Text("当前：${state.settings.threads} 线程 · ${state.settings.temperatureLimitC}°C 上限 · ${state.settings.generationTimeoutSeconds} 秒时限")
             Text(
-                "上下文固定为 2048；节点运行时不能修改设置。",
+                "档位只调整工作负载，不锁 CPU 频率。线程更多不一定更快；上下文固定 2048，运行时设置锁定。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -77,6 +89,28 @@ fun NodeScreen(
                 value = state.settings.threads,
                 enabled = !state.serviceRunning,
                 onSave = actions.setThreads,
+            )
+            NumberSettingField(
+                label = "温度上限（38–43°C）",
+                value = state.settings.temperatureLimitC,
+                enabled = !state.serviceRunning,
+                onSave = actions.setTemperatureLimitC,
+            )
+            NumberSettingField(
+                label = "单次时限（15–120 秒）",
+                value = state.settings.generationTimeoutSeconds,
+                enabled = !state.serviceRunning,
+                onSave = actions.setGenerationTimeoutSeconds,
+            )
+            Text(
+                "电池达到上限或系统热状态严重时暂停，降温至少 3°C 后检查恢复；读取不到两种热信号时也暂停。加载和生成均受时限约束。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "这是应用的保守限制，不是设备安全保证。不会关闭系统温控或充电保护；老化、鼓包、异常发热的电池不应运行高负载。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -200,7 +234,7 @@ private fun PrerequisiteRow(label: String, complete: Boolean) {
 }
 
 @Composable
-private fun MessageSurface(
+internal fun MessageSurface(
     message: String,
     error: Boolean,
     onDismiss: () -> Unit,

@@ -12,6 +12,8 @@ work/references/
 !apps/
 !apps/desktop/
 !apps/desktop/**
+# The desktop include above must not re-include Finder metadata.
+apps/desktop/**/.DS_Store
 apps/desktop/node_modules/
 apps/desktop/dist/
 apps/desktop/src-tauri/target/

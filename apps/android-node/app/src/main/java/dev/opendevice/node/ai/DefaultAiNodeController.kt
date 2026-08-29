@@ -15,6 +15,7 @@ import dev.opendevice.node.inference.InferenceState
 import dev.opendevice.node.kernel.ModuleRegistry
 import dev.opendevice.node.kernel.ModuleStartupGuard
 import dev.opendevice.node.model.ModelDownloadRepository
+import dev.opendevice.node.settings.NodeSettings
 import java.io.File
 import java.net.BindException
 import java.net.InetAddress
@@ -22,6 +23,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +39,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 class DefaultAiNodeController(
     private val moduleRegistry: ModuleRegistry,
@@ -50,6 +57,7 @@ class DefaultAiNodeController(
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
     private val bindAddress: String = "127.0.0.1",
     private val port: Int = 0,
+    private val nodeSettings: () -> NodeSettings = { NodeSettings() },
     private val socketHttpServer: SocketHttpServer? = null,
     private val serverConfig: () -> ServerConfig = {
         ServerConfig(
@@ -63,7 +71,7 @@ class DefaultAiNodeController(
     private val mutableMetrics = MutableStateFlow(NodeMetrics())
     private val lifecycleMutex = Mutex()
     private val generationMutex = Mutex()
-    private val resourceGuard = ResourceGuard(modelSizeBytes)
+    private val resourceGuard = ResourceGuard(modelSizeBytes) { activeSettings.temperatureLimitC }
 
     private var monitorJob: Job? = null
     private var stableJob: Job? = null
@@ -71,6 +79,7 @@ class DefaultAiNodeController(
     private var explicitlyStopped = true
     private var verifiedModel: File? = null
     private var activeEndpoint: ServerEndpoint? = null
+    private var activeSettings = NodeSettings()
 
     override val state: StateFlow<AiNodeState> = mutableState.asStateFlow()
     override val metrics: StateFlow<NodeMetrics> = mutableMetrics.asStateFlow()
@@ -78,11 +87,13 @@ class DefaultAiNodeController(
     override suspend fun start(): StartResult = lifecycleMutex.withLock {
         if (mutableState.value.isRunning()) return@withLock StartResult.AlreadyRunning
         explicitlyStopped = false
+        activeSettings = nodeSettings()
 
         if (!isModuleEnabled()) {
             mutableState.value = AiNodeState.Stopped
             return@withLock StartResult.ModuleDisabled
         }
+        mutableState.value = AiNodeState.Starting
         verifiedModel = null
         val model = modelRepository.verifiedModelFile()
             ?: return@withLock StartResult.ModelMissing.also {
@@ -184,7 +195,14 @@ class DefaultAiNodeController(
                 generationStarted = true
             }
 
-            inferenceEngine.generate(messages, options)
+            withTimeout(activeSettings.generationTimeoutSeconds * 1_000L) {
+                inferenceEngine.generate(
+                messages,
+                options.copy(
+                    maxTokens = minOf(options.maxTokens, activeSettings.maxOutputTokens),
+                    threads = activeSettings.threads,
+                ),
+            )
                 .catch { error ->
                     if (error is CancellationException) throw error
                     lifecycleMutex.withLock {
@@ -210,20 +228,21 @@ class DefaultAiNodeController(
                     samplePeakRss()
                     emit(chunk)
                 }
+            }
 
             val elapsedNanos = (monotonicNanos() - generationStartNanos).coerceAtLeast(1L)
             mutableMetrics.value = mutableMetrics.value.copy(
                 outputTokensPerSecond = outputTokens.toDouble() * NANOS_PER_SECOND / elapsedNanos,
             )
         } finally {
-            lifecycleMutex.withLock {
+            withContext(NonCancellable) { lifecycleMutex.withLock {
                 activeGenerationJob = null
                 val current = mutableState.value
                 if (generationStarted && current is AiNodeState.Busy && current.requestId == requestId) {
                     mutableState.value = servingState()
                     scheduleStableMarker()
                 }
-            }
+            } }
             generationMutex.unlock()
         }
     }
@@ -238,11 +257,7 @@ class DefaultAiNodeController(
         val startedAt = monotonicNanos()
         var requestedPort: Int? = null
         return try {
-            inferenceEngine.load(
-                model = model,
-                contextSize = GenerationContract.RELEASE_CONTEXT_SIZE,
-                threads = GenerationContract.MIN_THREADS,
-            )
+            loadWithResourceChecks(model)
             val elapsed = nanosToMillis(monotonicNanos() - startedAt)
             mutableMetrics.value = mutableMetrics.value.copy(modelLoadMillis = elapsed)
             samplePeakRss()
@@ -254,9 +269,29 @@ class DefaultAiNodeController(
             StartResult.Started
         } catch (error: Exception) {
             activeEndpoint = null
-            runCatching { socketHttpServer?.stop() }
-            runCatching { inferenceEngine.unload() }
-            startupGuard.markCleanStop(moduleId)
+            withContext(NonCancellable) {
+                runCatching { socketHttpServer?.stop() }
+                runCatching { inferenceEngine.unload() }
+                startupGuard.markCleanStop(moduleId)
+            }
+            if (error is LoadResourceBlocked) {
+                return when (val decision = error.decision) {
+                    is ResourceDecision.BlockMemory -> {
+                        mutableState.value = AiNodeState.BlockedMemory(decision.requiredBytes, decision.availableBytes)
+                        StartResult.BlockedMemory(decision.requiredBytes, decision.availableBytes)
+                    }
+                    else -> {
+                        resourceGuard.markPausedForHeat()
+                        val paused = error.facts
+                        mutableState.value = AiNodeState.PausedHeat(paused.batteryTemperatureC, paused.thermalStatus)
+                        startMonitoring()
+                        StartResult.BlockedHeat(paused.batteryTemperatureC, paused.thermalStatus)
+                    }
+                }
+            }
+            if (error is TimeoutCancellationException) {
+                return failStart(IllegalStateException("模型加载超时，请缩短工作负载后重试"))
+            }
             if (error is CancellationException) throw error
             val mappedError = if (error is BindException && requestedPort != null) {
                 IllegalStateException("端口 $requestedPort 已被占用", error)
@@ -267,10 +302,50 @@ class DefaultAiNodeController(
         }
     }
 
+    private suspend fun loadWithResourceChecks(model: File) = coroutineScope {
+        var blocked: LoadResourceBlocked? = null
+        val loading = async {
+            withTimeout(activeSettings.generationTimeoutSeconds * 1_000L) {
+                inferenceEngine.load(model, GenerationContract.RELEASE_CONTEXT_SIZE, activeSettings.threads)
+            }
+        }
+        // This observer must not take lifecycleMutex: start() owns it while loading.
+        val observer = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                deviceFactsSource.observe().collect { facts ->
+                    updateDeviceMetrics(facts)
+                    val decision = resourceGuard.evaluate(facts)
+                    if (decision != ResourceDecision.Allow) {
+                        blocked = LoadResourceBlocked(decision, facts)
+                        loading.cancel()
+                    }
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                val unknown = DeviceFacts()
+                blocked = LoadResourceBlocked(resourceGuard.evaluate(unknown), unknown)
+                loading.cancel()
+            }
+        }
+        try {
+            loading.await()
+        } catch (cancelled: CancellationException) {
+            blocked?.let { throw it }
+            throw cancelled
+        } finally {
+            observer.cancel()
+        }
+    }
+
+    private class LoadResourceBlocked(val decision: ResourceDecision, val facts: DeviceFacts) : Exception()
+
     private fun startMonitoring() {
         monitorJob?.cancel()
         monitorJob = applicationScope.launch(start = CoroutineStart.UNDISPATCHED) {
-            deviceFactsSource.observe().collect { facts ->
+            deviceFactsSource.observe().catch { error ->
+                if (error is CancellationException) throw error
+                emit(DeviceFacts())
+            }.collect { facts ->
                 lifecycleMutex.withLock {
                     updateDeviceMetrics(facts)
                     handleResourceDecisionLocked(facts)

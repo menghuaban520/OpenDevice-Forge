@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 
 class ModelRecommendationPolicyTest {
     @Test
-    fun eightGibArm64PhoneGetsTheNewerSpeedProfile() {
+    fun eightGibArm64PhoneGetsTheReleaseVerifiedProfile() {
         val facts = DeviceFacts(
             supportedAbis = listOf("arm64-v8a"),
             totalMemoryBytes = 8L * GIB,
@@ -14,7 +14,7 @@ class ModelRecommendationPolicyTest {
         )
 
         assertEquals(
-            "qwen3.5-0.8b-q4_0",
+            "qwen3-0.6b-q8_0",
             BuiltinModelCatalog.recommend(facts).id,
         )
     }

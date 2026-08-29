@@ -5,11 +5,15 @@ import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -38,6 +42,7 @@ import dev.opendevice.node.inference.ChatMessage
 import dev.opendevice.node.inference.GenerationChunk
 import dev.opendevice.node.inference.GenerationOptions
 import dev.opendevice.node.kernel.BuiltinModules
+import dev.opendevice.node.kernel.InMemoryModuleRegistry
 import dev.opendevice.node.kernel.ModuleRecord
 import dev.opendevice.node.kernel.ModuleRegistry
 import dev.opendevice.node.kernel.ModuleRegistrySnapshot
@@ -51,6 +56,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.RuleChain
@@ -65,6 +73,7 @@ class NodeFlowTest {
     private val compose = createAndroidComposeRule<MainActivity>()
 
     private lateinit var modelRepository: FlowModelRepository
+    private lateinit var registry: InMemoryModuleRegistry
 
     @get:Rule
     val rules: RuleChain = RuleChain
@@ -89,7 +98,11 @@ class NodeFlowTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val manifest = BuiltinModules.aiNode(context)
-        val registry = FlowModuleRegistry(manifest)
+        registry = InMemoryModuleRegistry(clock = { 0L })
+        runBlocking {
+            registry.installBuiltin(BuiltinModules.deviceInfo(context))
+            registry.installBuiltin(manifest)
+        }
         modelRepository = FlowModelRepository(context.cacheDir.resolve("node-flow.gguf"))
         val controller = FlowController()
         val socket = FlowSocketServer()
@@ -128,7 +141,27 @@ class NodeFlowTest {
     }
 
     @Test
-    fun completePhoneFlowUsesFirstSetupAndFiveScreenSurface() {
+    fun performanceDisplayCanBeHiddenWhileSafetySettingsStayLocked() {
+        modelRepository.ready()
+        moduleAction("dev.opendevice.module.ai-node", "open")
+        waitForText("OpenDevice Node")
+        compose.onNodeWithText("启用本地 AI 节点").performClick()
+        compose.onNodeWithText("性能").performScrollTo().performClick()
+        compose.onNodeWithText("隐藏性能读数").performScrollTo().performClick()
+        compose.onNodeWithText("电池温度").assertDoesNotExist()
+        compose.onNodeWithText("温度上限（38–43°C）").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("启动节点").performScrollTo().performClick()
+        waitForText("停止节点")
+        compose.onNodeWithText("性能").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("显示性能读数").performScrollTo().performClick()
+        compose.onNodeWithText("本应用 CPU").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("停止节点").performScrollTo().performClick()
+    }
+
+    @Test
+    fun completePhoneFlowKeepsSetupAndChatInsideTheAiModule() {
+        compose.onNodeWithText("为这台手机选择模型").assertDoesNotExist()
+        moduleAction("dev.opendevice.module.ai-node", "open")
         compose.onNodeWithText("为这台手机选择模型").assertIsDisplayed()
         compose.onNodeWithText("下载推荐模型").performClick()
         waitForText("正在下载 13%")
@@ -141,7 +174,7 @@ class NodeFlowTest {
         compose.onNodeWithText("启动节点").performClick()
         waitForText("停止节点")
         navigate("对话")
-        compose.onNodeWithText("发给手机模型").performTextInput("你好")
+        compose.onNodeWithText("发给手机模型").performScrollTo().performTextInput("你好")
         compose.onNodeWithText("发送").performScrollTo().performClick()
         waitForText("手机回复")
         navigate("节点")
@@ -149,24 +182,25 @@ class NodeFlowTest {
         waitForText("启动节点")
 
         navigate("模块")
-        compose.onNodeWithText("尚未提供在线模块市场").assertIsDisplayed()
+        compose.onNodeWithText("尚未提供在线模块市场").performScrollTo().assertIsDisplayed()
 
         navigate("连接")
-        compose.onNodeWithText("临时开启局域网").performClick()
-        compose.onNodeWithText(
-            "局域网模式使用 HTTP，同一网络中的攻击者可能窃听；只在可信 Wi-Fi 临时开启",
+        compose.onNodeWithText("临时开启局域网").performScrollTo().performClick()
+        compose.onNode(
+            hasText("局域网模式使用 HTTP，同一网络中的攻击者可能窃听；只在可信 Wi-Fi 临时开启") and
+                hasAnyAncestor(isDialog()),
         ).assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
 
-        compose.onNodeWithText("客户端名称，例如 我的电脑").performTextInput("我的电脑")
-        compose.onNodeWithText("创建客户端密钥").performClick()
+        compose.onNodeWithText("客户端名称，例如 我的电脑").performScrollTo().performTextInput("我的电脑")
+        compose.onNodeWithText("创建客户端密钥").performScrollTo().performClick()
         waitForText("one-time-ui-secret")
         compose.onNodeWithText("我已保存").performClick()
         compose.onNodeWithText("one-time-ui-secret").assertDoesNotExist()
 
         navigate("状态")
-        compose.onNodeWithText("Public gateway").assertIsDisplayed()
-        compose.onNodeWithText("Root Broker").assertIsDisplayed()
+        compose.onNodeWithText("Public gateway").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Root Broker").performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithText("尚未实现").assertCountEquals(5)
 
         navigate("节点")
@@ -176,11 +210,51 @@ class NodeFlowTest {
         waitForText("启动节点")
     }
 
+    @Test
+    fun deviceModuleAndUninstallWorkWithoutAnyAiModelDownload() {
+        compose.onNodeWithText("为这台手机选择模型").assertDoesNotExist()
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "enable")
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "open")
+        compose.onNodeWithText("OpenDevice Test Phone").performScrollTo().assertIsDisplayed()
+        assertEquals(0, modelRepository.enqueueCount)
+
+        navigate("模块")
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "disable")
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "uninstall")
+        compose.onNodeWithText("取消").performClick()
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "uninstall")
+        compose.onNodeWithText("确认卸载").performClick()
+        compose.onNodeWithTag("module:${BuiltinModules.DEVICE_INFO_ID}:open").assertDoesNotExist()
+        moduleAction(BuiltinModules.DEVICE_INFO_ID, "install")
+        compose.onNodeWithTag("module:${BuiltinModules.DEVICE_INFO_ID}:enable").assertIsDisplayed()
+
+        val aiId = "dev.opendevice.module.ai-node"
+        moduleAction(aiId, "uninstall")
+        compose.onNodeWithText("确认卸载").performClick()
+        compose.onNodeWithTag("module:$aiId:open").assertDoesNotExist()
+        assertFalse(registry.snapshot.value.modules.first { it.manifest.id == aiId }.installed)
+        assertEquals(0, modelRepository.enqueueCount)
+        navigate("设备")
+        compose.onNodeWithText("模块尚未启用").assertIsDisplayed()
+    }
+
+    private fun moduleAction(id: String, action: String) {
+        compose.onNodeWithTag("module:$id:$action").performScrollTo().performClick()
+        compose.waitForIdle()
+    }
+
     private fun navigate(label: String) {
+        if (label in listOf("节点", "对话", "连接") &&
+            compose.onAllNodes(hasText(label) and hasClickAction()).fetchSemanticsNodes().isEmpty()
+        ) {
+            compose.onNode(hasText("模块") and hasClickAction()).performClick()
+            moduleAction("dev.opendevice.module.ai-node", "open")
+        }
         compose.onNode(hasText(label) and hasClickAction()).performClick()
         waitForText(
             when (label) {
                 "节点" -> "OpenDevice Node"
+                "设备" -> "设备信息"
                 else -> label
             },
         )
@@ -200,44 +274,15 @@ private class SingleViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T = viewModel as T
 }
 
-private class FlowModuleRegistry(manifest: dev.opendevice.node.contract.ModuleManifest) : ModuleRegistry {
-    private val mutable = MutableStateFlow(
-        ModuleRegistrySnapshot(
-            modules = listOf(ModuleRecord(manifest, installed = true, enabled = false)),
-        ),
-    )
-    override val snapshot: StateFlow<ModuleRegistrySnapshot> = mutable
-
-    override suspend fun installBuiltin(manifest: dev.opendevice.node.contract.ModuleManifest) = Unit
-
-    override suspend fun enable(id: String): RegistryResult = RegistryResult.Changed.also {
-        setEnabled(id, true)
-    }
-
-    override suspend fun disable(id: String): RegistryResult = RegistryResult.Changed.also {
-        setEnabled(id, false)
-    }
-
-    override suspend fun recordCrash(id: String, atMillis: Long) = Unit
-
-    override suspend fun exitSafeMode() = Unit
-
-    private fun setEnabled(id: String, enabled: Boolean) {
-        mutable.value = mutable.value.copy(
-            modules = mutable.value.modules.map { record ->
-                if (record.manifest.id == id) record.copy(enabled = enabled) else record
-            },
-        )
-    }
-}
-
 private class FlowModelRepository(
     val file: File,
 ) : ModelDownloadRepository {
     private val mutable = MutableStateFlow<ModelDownloadState>(ModelDownloadState.Missing)
     override val state: StateFlow<ModelDownloadState> = mutable
+    var enqueueCount = 0
 
     override fun enqueue() {
+        enqueueCount += 1
         mutable.value = ModelDownloadState.Downloading(128L, 1_024L)
     }
 

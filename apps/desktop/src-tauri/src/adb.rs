@@ -195,10 +195,11 @@ fn locate_adb(resource_dir: Option<&Path>) -> Result<(PathBuf, &'static str), Ad
         home.as_deref(),
     ) {
         if candidate.is_file() {
-            let source = resource_dir
-                .is_some_and(|directory| candidate.starts_with(directory))
-                .then_some("bundled")
-                .unwrap_or("path");
+            let source = if resource_dir.is_some_and(|directory| candidate.starts_with(directory)) {
+                "bundled"
+            } else {
+                "path"
+            };
             return Ok((candidate, source));
         }
     }
