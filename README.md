@@ -4,7 +4,7 @@ OpenDevice Forge is a device-first module platform for desktop and Android. Each
 
 The current build includes the desktop module workbench and an Android module host with read-only device information and a bounded local AI module. The phone opens on Modules without requiring a model download. Package v1 now has complete-manifest P-256 verification, explicit publisher trust, permission review planning, and private versioned stores on both hosts. Android uses atomic directory/pointer moves verified on API 29; desktop uses atomic version publication plus an append-only, last-valid pointer journal verified on macOS. Network acquisition and registry activation remain release gates; bundled Android runtime code still ships inside the APK.
 
-See [module-host candidate verification](docs/verification/android-module-host.md) for local tests/build, installed APK provenance, cross-host package signatures, prior version-bound phone evidence, native inference, module persistence and AI service start/stop. The latest UI build must receive a new phone hash and regression run before those earlier device results can be carried forward. Online acquisition and public release remain separate gates.
+See [module-host candidate verification](docs/verification/android-module-host.md) for the current source/build status, installed APK provenance, cross-host package signatures, native inference, module persistence and AI service start/stop. That record is the source of truth for the current Android candidate; older phone reports remain version-bound history, and future source or packaging changes require fresh hashes and regression evidence. Online acquisition and public release remain separate gates.
 
 ## Safety boundary
 
@@ -50,7 +50,7 @@ JAVA_HOME=/path/to/jdk-17 ANDROID_HOME=/path/to/android-sdk \
 
 The native build is unsigned unless platform signing credentials are supplied deliberately. Pushing a version-matched `v*` tag after the reviewed source exists on the remote triggers macOS, Windows and Android arm64 draft artifacts plus SHA-256 files; the Android artifact uses debug signing. The workflow does not publish the product site.
 
-No source commit has been pushed to the current public repository. No public deployment, signed package, or current-build real-device compatibility claim is included by default.
+The public repository now contains source history for review. No tag, public deployment, signed package, or generalized real-device compatibility claim is included by default.
 
 See [the 0.1.0 preview notes](docs/release/0.1.0-preview.md), [contribution guide](CONTRIBUTING.md), and [security policy](SECURITY.md) before publishing or distributing artifacts.
 
