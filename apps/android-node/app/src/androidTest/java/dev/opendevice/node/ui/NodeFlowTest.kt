@@ -148,6 +148,7 @@ class NodeFlowTest {
         compose.onNodeWithText("启用本地 AI 节点").performClick()
         compose.onNodeWithText("电池温度").assertDoesNotExist()
         compose.onNodeWithText("性能").performScrollTo().performClick()
+        compose.onNodeWithText("自定义上限").performScrollTo().performClick()
         compose.onNodeWithText("温度上限（38–43°C）").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("启动节点").performScrollTo().performClick()
         waitForText("停止节点")
@@ -236,7 +237,7 @@ class NodeFlowTest {
         assertFalse(registry.snapshot.value.modules.first { it.manifest.id == aiId }.installed)
         assertEquals(0, modelRepository.enqueueCount)
         navigate("设备")
-        compose.onNodeWithText("模块尚未启用").assertIsDisplayed()
+        compose.onNodeWithText("模块未启用").assertIsDisplayed()
     }
 
     private fun moduleAction(id: String, action: String) {
@@ -255,7 +256,7 @@ class NodeFlowTest {
         waitForText(
             when (label) {
                 "节点" -> "本地 AI 节点"
-                "设备" -> "设备信息"
+                "设备" -> "设备能力"
                 else -> label
             },
         )

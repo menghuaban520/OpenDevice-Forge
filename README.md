@@ -56,6 +56,8 @@ See [the 0.1.0 preview notes](docs/release/0.1.0-preview.md), [contribution guid
 
 ## Android performance controls
 
-On the phone, Modules → 本地 AI 节点 → 打开 → 性能与保护 offers workload presets and custom 2–4 threads, 1–512 output tokens, a 38–43°C battery ceiling, and a 15–120-second load/generation deadline. Temperature and CPU readings are hidden by default and can be shown without changing protection. These are app-level limits, not CPU clock controls or a hardware safety guarantee; system thermal and charging protections remain intact.
+The Android host is not tied to one phone model. On Android 9+ arm64 devices it builds a capability profile from the live SDK, ABI, memory, allocatable storage and logical processor count, then labels the workload as light, balanced or performance. Manufacturer and model names are display facts, never compatibility allowlists. This is a multi-device policy, not a claim that every phone has completed real-device verification.
+
+On the phone, Modules → 本地 AI 节点 → 打开 → 负载与保护 offers workload presets and custom 2–4 threads, 1–512 output tokens, a 38–43°C battery ceiling, and a 15–120-second load/generation deadline. Temperature and CPU readings are hidden by default and can be shown without changing protection. These are app-level limits, not CPU clock controls or a hardware safety guarantee; system thermal and charging protections remain intact.
 
 See the [version-bound CDL-AN50 verification](docs/verification/android-node-cdl-an50.md) for measured short-run performance, installed APK hashes, test results and unverified background/long-duration boundaries.

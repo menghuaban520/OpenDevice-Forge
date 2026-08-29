@@ -49,7 +49,9 @@ fun ConnectionsScreen(
         )
         if (state.modules.safeMode) SafeModeBanner(actions.exitSafeMode)
 
-        InfoCard("当前端点") {
+        AdaptivePaneLayout(
+            primary = {
+                InfoCard("当前端点") {
             KeyValueRow("状态", if (state.endpoint == null) "未监听" else "正在监听")
             KeyValueRow(
                 "模式",
@@ -92,9 +94,9 @@ fun ConnectionsScreen(
             ) {
                 Text("保存端口")
             }
-        }
+                }
 
-        InfoCard("USB 连接电脑") {
+                InfoCard("USB 连接电脑") {
             Text(
                 "本机模式下，在已授权 ADB 的电脑运行：",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -107,9 +109,9 @@ fun ConnectionsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
+                }
 
-        InfoCard("局域网") {
+                InfoCard("局域网") {
             KeyValueRow("状态", if (state.settings.lanEnabled) "已临时开启" else "关闭")
             Text(
                 "局域网模式使用 HTTP，同一网络中的攻击者可能窃听；只在可信 Wi-Fi 临时开启",
@@ -130,9 +132,11 @@ fun ConnectionsScreen(
                     Text(if (state.serviceRunning) "请先停止节点" else "临时开启局域网")
                 }
             }
-        }
+                }
+            },
+            secondary = {
 
-        InfoCard("客户端密钥") {
+                InfoCard("客户端密钥") {
             Text(
                 "每台电脑使用独立密钥。原始密钥只在创建后显示一次，列表只保留指纹。",
                 style = MaterialTheme.typography.bodySmall,
@@ -172,15 +176,17 @@ fun ConnectionsScreen(
                     }
                 }
             }
-        }
+                }
 
-        InfoCard("公网访问") {
-            KeyValueRow("公网中继", "尚未实现")
-            Text(
-                "后续采用手机主动连出到中继的方式，不直接把手机端口暴露到公网。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                InfoCard("公网访问") {
+                    KeyValueRow("公网中继", "尚未实现")
+                    Text(
+                        "后续采用手机主动连出到中继的方式，不直接把手机端口暴露到公网。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+        )
     }
 }
 

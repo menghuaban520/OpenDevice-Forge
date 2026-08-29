@@ -50,6 +50,7 @@ class AndroidDeviceFactsSource(
             model = Build.MODEL.orEmpty(),
             sdkInt = Build.VERSION.SDK_INT,
             supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
+            logicalProcessorCount = Runtime.getRuntime().availableProcessors().takeIf { it > 0 },
             totalMemoryBytes = memory?.totalMem,
             availableMemoryBytes = memory?.availMem,
             allocatableStorageBytes = readAllocatableStorage(),

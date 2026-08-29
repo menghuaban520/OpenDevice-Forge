@@ -4,11 +4,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.SystemBarStyle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,7 @@ import dev.opendevice.node.ui.NodeApp
 import dev.opendevice.node.ui.NodeAppActions
 import dev.opendevice.node.ui.NodeDestination
 import dev.opendevice.node.ui.NodeViewModel
+import dev.opendevice.node.ui.OpenDeviceTheme
 import dev.opendevice.node.ui.ServerSocketPortAvailabilityProbe
 import dev.opendevice.node.ui.shouldShowModelSetup
 
@@ -58,6 +60,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         val notificationPermission = registerForActivityResult(
             ActivityResultContracts.RequestPermission(),
         ) { granted -> nodeViewModel.startNode(notificationPermissionGranted = granted) }
@@ -71,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 if (destination.isAi) nodeViewModel.prepareAiModule()
             }
 
-            MaterialTheme {
+            OpenDeviceTheme {
                 if (shouldShowModelSetup(state.modelState, modelSetupSkipped, destination, state.aiModule?.installed == true)) {
                     ModelSetupScreen(
                         state = state,

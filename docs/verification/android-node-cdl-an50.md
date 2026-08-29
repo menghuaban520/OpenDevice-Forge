@@ -1,8 +1,19 @@
 # CDL-AN50 Android AI node verification
 
-Status: **bounded performance candidate verified on 2026-08-28** for the installed APK identified below. The earlier USB/API delivery remains version-bound to 2026-08-26 and is not inherited by this APK.
+Status: **adaptive-console candidate and bounded native regression verified on 2026-08-29** for the installed APK identified below. Earlier performance and USB/API evidence remains version-bound to its recorded APK and is not silently inherited.
 
 This report distinguishes current-source checks, installed APK behavior, native model generation, OpenAI-compatible API behavior, and deferred scope. It does not claim LAN, public-Internet, Root, marketplace, or long-duration thermal-soak support.
+
+## Adaptive console current candidate — 2026-08-29
+
+- Installed main APK SHA-256: `6d3798b600fc2ebc1bcd4da3962fe0ab0691a4f374358ef6735bc1ad7764b97b`; installed instrumentation APK SHA-256: `6ca0d96fbb6f08a10186481330ae3676b0be8eec1755af5b5ccf5aed340763c7`. Both were read back from `/data/app` and match the final local artifacts.
+- The retained Qwen3 0.6B Q8_0 model remains 639,446,688 bytes and matches SHA-256 `9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031` inside the application's private no-backup directory. It was not downloaded again.
+- `NodeFlowTest` passed 3/3 in 11.036 seconds. The first current-build run reproduced a stale-test failure after the redesigned device page renamed its visible title and disabled-state label; the two outdated expectations were updated, the isolated flow passed 1/1, and the complete flow then passed 3/3.
+- The remaining device tests covered the live fail-closed resource policy, Android Keystore key lifecycle, cross-host/device P-256 verification and atomic package-store rollback. The no-argument aggregate run executed these eight non-model tests and explicitly skipped the two model-path-dependent tests; it is not counted as native proof.
+- `LlamaCppSmokeTest` was rerun separately with the actual private model path and passed 2/2 in 8.424 seconds. Native-load cancellation observed the native frame, released the model, and allowed reload/generation. The bounded generation loaded in 621 ms, reached first output at 945 ms after test start, completed at 997 ms, and unloaded at 1,065 ms with 2 output tokens and 2 threads.
+- Battery temperature was 28.0°C before and after the native run. The AI foreground service was stopped after verification. No LAN listener, new client key, Root action, clock change, battery/thermal bypass or system protection change was made.
+- The installed app produced current 1080 × 2400 dark-theme evidence in `screenshots/android-adaptive-*.png`: property-driven HUAWEI CDL-AN50 capability profile, module center, device facts, status, stopped AI node and bounded custom limits. Temperature and CPU readings are absent from the first view and remain optional while protection stays active.
+- This proves the redesigned compact-phone path on one Android API-29 arm64 device. Other manufacturers, Android versions, tablets, large font scales, screen-off/background reliability and sustained load remain unverified.
 
 ## Performance candidate — 2026-08-28
 

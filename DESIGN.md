@@ -146,3 +146,71 @@ The Android app is a compact, touch-first module host for the phone owner. It op
 - Evidence: `docs/verification/screenshots/android-performance-node.png`, `android-performance-settings.png`, `android-modules-final.png`, `android-device-info.png`, `android-ai-node-running.png`, three current-device UI flows, two native smoke tests, and actual foreground-service start/stop on the installed candidate identified in `docs/verification/android-module-host.md`.
 - Scope: current compact Android light theme at 1080 × 2400. Desktop/browser gates are not applicable to this native-only UI change; dark theme, large fonts and tablets need their own visual checks.
 - Learning: more threads is not a guaranteed faster preset; the 2-thread short run outperformed 4 threads overall on this device. Unknown sensors must stay unknown, and hiding readings must never suppress safety state.
+
+---
+
+## Android adaptive console v3 — 2026-08-29
+
+### Product feeling
+
+OpenDevice Forge is a local device capability console, not an Android settings clone and not an AI-only chat app. The interface should feel precise, capable and calm: a dark technical workspace with clear operational state, strong information hierarchy and no decorative claims.
+
+### Reference adoption map
+
+| Source | Adopt | Adapt | Reject | Evidence |
+| --- | --- | --- | --- | --- |
+| Material 3 adaptive guidance | Window-based navigation and compact/medium/expanded layouts | Keep the current state-driven Compose architecture and use one content source across layouts | Device-name or tablet-name checks | Android Developers, checked 2026-08-29 |
+| UI/UX Pro Max dark developer-tool profile | OLED graphite surfaces, cool high-contrast accent, restrained density | Use the Android system font for reliable Chinese text instead of downloaded web fonts | Documentation landing-page structure and ornamental glow | Local design search, checked 2026-08-29 |
+| Existing OpenDevice runtime | Honest state, explicit unavailable capabilities, safe app-level limits | Promote these facts into a device capability profile and concise status language | The previous large pale card wall and repeated equal-weight actions | Real CDL-AN50 screenshot and UI tests |
+
+### Visual tokens
+
+- Background: near-black graphite. Surfaces step through three blue-gray levels; they are separated by tone and a 1dp outline, not large shadows.
+- Primary: cold cyan for the current destination and the single primary action. Success, warning and danger keep their semantic green, amber and red roles.
+- Typography: Android system sans. Display 32sp, screen title 26sp, section title 18sp, body 15–16sp, labels 12–13sp. Numeric telemetry uses tabular/monospace figures.
+- Spacing: 4/8dp base. Screen gutters are 16dp compact, 24dp medium and 32dp expanded. Section gaps are 16/24dp.
+- Shape: 10dp controls, 16dp sections and 20dp hero surfaces. Pills are reserved for state and capability labels.
+- Icons: Material icons only. Structural emoji and mixed icon families are forbidden.
+
+### Structure and responsive behavior
+
+- Compact windows use bottom navigation and a single content column.
+- Medium and expanded windows use a navigation rail. Summary/detail or paired information sections become two columns only when height and width allow it.
+- Width decisions use the available app window, never a manufacturer or model-name whitelist. Compact is below 600dp, medium is 600–839dp and expanded starts at 840dp.
+- Long content remains width-limited; controls do not stretch edge to edge on tablets.
+- Every touch target is at least 48dp. Text wraps before controls shrink below a usable size.
+
+### Core screens
+
+- Module center opens with the real device capability profile: compatibility state, workload tier and the facts that produced it. Temperature and CPU telemetry never appear on first open.
+- Module rows expose one primary next action. Disable, uninstall and technical metadata are progressively disclosed.
+- Device details distinguish host compatibility from AI workload capacity and explain limitations without pretending to support unverified hardware.
+- The AI node leads with current service state and one action; model, workload presets and advanced safety settings follow in that order.
+
+### Motion and accessibility
+
+- Use Material state layers and short content transitions only when they communicate selection, expansion or progress. No looping, bounce, parallax or decorative entrance choreography.
+- Color never carries state alone; every state also has text.
+- Normal text targets at least 4.5:1 contrast and meaningful non-text controls target 3:1.
+- Preserve system font scaling, screen-reader order, system back/gesture behavior and safe-area insets.
+
+### Rejected patterns
+
+- Equal-sized card walls with one card per fact.
+- Three equal-weight buttons for every module.
+- Fixed phone-model compatibility copy.
+- Fake capability scores, unmeasured speed labels or claims that app limits replace Android thermal protection.
+- Temperature/CPU telemetry on first open.
+
+### Verified adaptive console experience — 2026-08-29
+
+- Status: verified.
+- Context: compact Android module host at 1080 × 2400, covering Modules, Device, Status and the stopped AI-node/settings path.
+- Signal: the previous light card wall did not communicate a capable device console, and UI automation still expected two predecessor device-page labels after the redesign.
+- Method: use live property-driven capability facts, a graphite/cyan Material token set, one primary action, progressive technical/custom controls and optional telemetry whose visibility is independent from protection. Keep automated navigation assertions synchronized with the current visible screen contract.
+- Evidence: installed main/test APK readback hashes in `docs/verification/android-module-host.md`; `NodeFlowTest` 3/3; native smoke 2/2; `docs/verification/screenshots/android-adaptive-*.png`; checked text/background contrast pairs from 7.31:1 to 17.50:1.
+- Applies to: the current compact-phone dark theme and APK-owned device/AI modules on the verified Android API-29 arm64 device.
+- Does not apply to: tablets, large font scales, other manufacturers/Android versions, system overlays, online module acquisition or sustained-load behavior.
+- Revalidate when: capability thresholds, visible screen titles, navigation structure, theme tokens, form-factor policy or module lifecycle changes.
+- Source: current Compose implementation and `docs/verification/android-module-host.md`.
+- Verified at: 2026-08-29.
