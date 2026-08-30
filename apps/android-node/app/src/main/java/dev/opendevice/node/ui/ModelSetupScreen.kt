@@ -2,9 +2,14 @@ package dev.opendevice.node.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -17,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.opendevice.node.device.capabilityProfile
 import dev.opendevice.node.model.ModelDescriptor
 import dev.opendevice.node.model.ModelDownloadState
 import java.util.Locale
@@ -36,21 +42,22 @@ fun ModelSetupScreen(
     onCancelDownload: () -> Unit,
     onSkip: () -> Unit,
 ) {
+    val profile = state.facts.capabilityProfile()
     Surface(modifier = Modifier.fillMaxSize()) {
-        ScreenColumn(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        ScreenColumn(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
+        ) {
             ScreenTitle(
                 title = "为这台手机选择模型",
-                subtitle = "首次设置会先读取手机配置，再给出适合本机的默认模型。",
+                subtitle = "先读取真实配置，再给出适合当前能力档位的固定模型。",
             )
-            InfoCard("手机体检") {
-                KeyValueRow("设备", state.facts.deviceLabel)
-                KeyValueRow("运行内存", state.facts.totalMemoryLabel)
-                KeyValueRow("可用存储", state.facts.allocatableStorageLabel)
-                KeyValueRow(
-                    "处理器架构",
-                    state.facts.supportedAbis.firstOrNull() ?: "未读取",
-                    monospace = true,
-                )
+            HeroSurface {
+                StatusPill(profile.tier.label, ForgeTone.PRIMARY)
+                Text(state.facts.deviceLabel, style = MaterialTheme.typography.titleLarge)
+                Text(profile.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SignalChips(profile.signals)
             }
             InfoCard("推荐下载") {
                 Text(
@@ -58,11 +65,11 @@ fun ModelSetupScreen(
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Text(
-                    "速度优先 · ${recommendedModel.sizeBytes.toMiB()} · ${recommendedModel.license}",
+                    "${profile.tier.label} · ${recommendedModel.sizeBytes.toMiB()} · ${recommendedModel.license}",
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    "已根据内存、存储与 arm64 能力匹配。模型来自 Qwen，GGUF 由 ggml-org 发布并固定版本与 SHA-256。",
+                    "已根据内存、存储与 arm64 能力匹配。模型来源、revision 与 SHA-256 均固定；不会按手机品牌写死。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 ModelSetupStatus(state.modelState, onDownload)

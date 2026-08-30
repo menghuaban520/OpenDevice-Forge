@@ -28,7 +28,7 @@ const iconFor = (id: string) => {
 };
 
 const sourceText = (manifest: PluginManifest) => {
-  if (manifest.source.kind === "official") return "OpenDevice Forge 官方目录";
+  if (manifest.source.kind === "official") return "随应用提供 · 本地清单";
   if (manifest.source.kind === "github") return `GitHub · ${manifest.source.repository}`;
   if (manifest.source.kind === "community") return `社区目录 · ${manifest.source.catalog}`;
   return "本地高级包";
@@ -97,7 +97,7 @@ export function PluginDetail({
                   aria-label={`打开${manifest.name}`}
                   disabled={!canOpen}
                   onClick={onOpen}
-                >打开插件</button>
+                >打开模块</button>
               </>
             ) : (
               <button
@@ -105,7 +105,7 @@ export function PluginDetail({
                 type="button"
                 aria-label={`安装${manifest.name}`}
                 onClick={() => onAction({ type: "install", manifest })}
-              >安装插件</button>
+              >安装模块</button>
             )}
           </div>
         </header>
@@ -113,7 +113,7 @@ export function PluginDetail({
         <dl className="plugin-meta">
           <div><dt>版本</dt><dd>{manifest.version}</dd></div>
           <div><dt>来源</dt><dd>{sourceText(manifest)}</dd></div>
-          <div><dt>运行方式</dt><dd>{manifest.execution === "declarative" ? "受控声明式" : "原生插件"}</dd></div>
+          <div><dt>运行方式</dt><dd>{manifest.execution === "declarative" ? "受控声明式" : "原生模块"}</dd></div>
           <div><dt>适用用户</dt><dd>{manifest.audience === "advanced" ? "高级用户" : "所有用户"}</dd></div>
           <div><dt>风险</dt><dd><span className={`risk-dot ${manifest.risk}`} />{riskText(manifest)}</dd></div>
         </dl>
@@ -123,7 +123,7 @@ export function PluginDetail({
         ) : null}
 
         <div className="detail-section">
-          <div className="section-heading"><h3>这个插件能做什么</h3></div>
+          <div className="section-heading"><h3>这个模块能做什么</h3></div>
           {manifest.contributes.map((contribution) => (
             <div className="contribution-row" key={contribution.id}>
               <CircleCheck />
@@ -143,7 +143,7 @@ export function PluginDetail({
         {installed && !manifest.protected ? (
           <div className="plugin-secondary-actions">
             {installed.previousVersions.length > 0 ? <button type="button" onClick={() => onAction({ type: "rollback", pluginId: manifest.id })}><RotateCcw />回退版本</button> : null}
-            <button className="danger-text" type="button" onClick={() => onAction({ type: "uninstall", pluginId: manifest.id })}>卸载插件</button>
+            <button className="danger-text" type="button" onClick={() => onAction({ type: "uninstall", pluginId: manifest.id })}>卸载模块</button>
           </div>
         ) : null}
       </section>

@@ -190,7 +190,7 @@ export function PluginWorkbench<TContext>({
     const controller = new AbortController();
     controllerRef.current = controller;
     setRunState("running");
-    setProgress({ phase: "starting", message: "正在准备插件…" });
+    setProgress({ phase: "starting", message: "正在准备模块…" });
     try {
       const nextResult = await runtime.execute({
         context,
@@ -230,11 +230,11 @@ export function PluginWorkbench<TContext>({
       <header className="workbench-header">
         {onBack ? (
           <button type="button" className="workbench-back" onClick={onBack}>
-            <ChevronLeft />返回插件市场
+            <ChevronLeft />返回模块中心
           </button>
         ) : null}
         <div>
-          <span className="workbench-kicker">插件工作台</span>
+          <span className="workbench-kicker">模块工作台</span>
           <h1>{manifest.name}</h1>
           <p>{manifest.summary}</p>
         </div>
@@ -246,7 +246,7 @@ export function PluginWorkbench<TContext>({
         </span>
       </header>
 
-      <div className="workbench-tabs" role="tablist" aria-label="插件工作台">
+      <div className="workbench-tabs" role="tablist" aria-label="模块工作台">
         {tabs.map((item) => (
           <button
             key={item.id}
@@ -268,7 +268,7 @@ export function PluginWorkbench<TContext>({
               <div className="run-card-copy">
                 <span>当前任务</span>
                 <h2>运行当前配置</h2>
-                <p>插件只会执行配置中已启用的项目，结果保留在本机工作台。</p>
+                <p>模块只会执行配置中已启用的项目，结果保留在本机工作台。</p>
               </div>
               <div className="run-card-action">
                 <button
@@ -287,7 +287,7 @@ export function PluginWorkbench<TContext>({
             {runState === "running" && progress ? (
               <div className="workbench-notice running" aria-live="polite">
                 <LoaderCircle className="spin" />
-                <div><strong>插件正在工作</strong><span>{progress.message}</span></div>
+                <div><strong>模块正在工作</strong><span>{progress.message}</span></div>
               </div>
             ) : null}
             {runState === "error" ? (

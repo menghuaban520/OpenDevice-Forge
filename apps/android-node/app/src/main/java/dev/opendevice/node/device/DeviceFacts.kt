@@ -7,6 +7,7 @@ data class DeviceFacts(
     val model: String = "",
     val sdkInt: Int = 0,
     val supportedAbis: List<String> = emptyList(),
+    val logicalProcessorCount: Int? = null,
     val totalMemoryBytes: Long? = null,
     val availableMemoryBytes: Long? = null,
     val allocatableStorageBytes: Long? = null,
@@ -32,6 +33,9 @@ data class DeviceFacts(
 
     val allocatableStorageLabel: String
         get() = allocatableStorageBytes.toGibLabel()
+
+    val logicalProcessorLabel: String
+        get() = logicalProcessorCount?.let { "$it 核" } ?: "未读取"
 
     val batteryPercentLabel: String
         get() = batteryPercent?.let { "$it%" } ?: "未读取"

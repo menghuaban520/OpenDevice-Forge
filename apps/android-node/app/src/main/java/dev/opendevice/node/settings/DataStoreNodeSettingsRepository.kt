@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
@@ -26,6 +27,8 @@ class DataStoreNodeSettingsRepository private constructor(
 
     companion object {
         private val SETTINGS_KEY = stringPreferencesKey("node_settings_v1")
+        private val PERFORMANCE_DEFAULT_HIDDEN_KEY =
+            booleanPreferencesKey("performance_default_hidden_v1")
         private val SETTINGS_JSON = Json {
             encodeDefaults = true
             explicitNulls = false
@@ -33,8 +36,9 @@ class DataStoreNodeSettingsRepository private constructor(
         }
 
         suspend fun create(dataStore: DataStore<Preferences>): DataStoreNodeSettingsRepository {
-            val encoded = dataStore.data.first()[SETTINGS_KEY]
-            val initial = if (encoded == null) {
+            val stored = dataStore.data.first()
+            val encoded = stored[SETTINGS_KEY]
+            var initial = if (encoded == null) {
                 NodeSettings()
             } else {
                 try {
@@ -43,6 +47,14 @@ class DataStoreNodeSettingsRepository private constructor(
                     NodeSettings()
                 } catch (_: IllegalArgumentException) {
                     NodeSettings()
+                }
+            }
+            if (stored[PERFORMANCE_DEFAULT_HIDDEN_KEY] != true) {
+                initial = initial.copy(showPerformance = false)
+                val migrated = SETTINGS_JSON.encodeToString(NodeSettings.serializer(), initial)
+                dataStore.edit { preferences ->
+                    preferences[SETTINGS_KEY] = migrated
+                    preferences[PERFORMANCE_DEFAULT_HIDDEN_KEY] = true
                 }
             }
             return DataStoreNodeSettingsRepository(dataStore, initial)

@@ -18,6 +18,13 @@ apps/desktop/node_modules/
 apps/desktop/dist/
 apps/desktop/src-tauri/target/
 
+# The machine-wide ignore file also excludes directories named Public on
+# case-insensitive macOS filesystems. The website's static assets are release
+# inputs and must be versioned.
+!apps/site/
+!apps/site/public/
+!apps/site/public/**
+
 # Android node local build products and machine-specific SDK path.
 apps/android-node/.gradle/
 apps/android-node/local.properties

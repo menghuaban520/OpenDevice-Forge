@@ -221,7 +221,7 @@ describe("App", () => {
   it("keeps daily navigation focused on devices and plugins", async () => {
     render(<App deviceClient={missingAdbClient} />);
     expect(screen.getByRole("button", { name: "设备" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "插件市场" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "模块" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "任务记录" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "设置" })).not.toBeInTheDocument();
     expect(screen.queryByText("核心（不可移除）")).not.toBeInTheDocument();

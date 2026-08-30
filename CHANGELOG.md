@@ -4,10 +4,10 @@
 
 ### Added
 
-- Desktop macOS/Windows device workbench with a fixed, read-only ADB bridge and recoverable plugin lifecycle.
+- Desktop macOS/Windows device workbench with a fixed, read-only ADB bridge and recoverable module lifecycle.
 - Android module-first host with independent device-information and local-AI modules.
 - Pinned arm64 `llama.cpp` inference, local chat and an authenticated OpenAI-compatible local HTTP endpoint.
-- Customizable app-level inference limits: 2–4 threads, 1–512 output tokens, 38–43 °C battery ceiling and 15–120 second deadline, with optional metric display.
+- Customizable app-level inference limits: 2–4 threads, 1–512 output tokens, 38–43 °C battery ceiling and 15–120 second deadline, with temperature and CPU readings hidden by default.
 - Cross-host package-v1 verification using bounded canonical manifests, SHA-256, P-256 signatures and explicit publisher trust.
 - Private versioned package storage, material-change review and rollback protection on Android and desktop.
 

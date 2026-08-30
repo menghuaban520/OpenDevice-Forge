@@ -11,7 +11,7 @@ data class NodeSettings(
     val threads: Int = 2,
     val temperatureLimitC: Int = 43,
     val generationTimeoutSeconds: Int = 60,
-    val showPerformance: Boolean = true,
+    val showPerformance: Boolean = false,
 ) {
     init {
         require(port in 1024..65535 && contextSize == 2048)

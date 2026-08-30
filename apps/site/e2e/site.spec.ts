@@ -11,7 +11,7 @@ test("desktop site presents the product without claiming a public release", asyn
   await expect(page.getByText("等待首个已验证发布包")).toBeVisible();
   await expect(page.getByRole("button", { name: /版本/ })).toBeDisabled();
   await expect(page.getByText("当前没有公开发行包")).toBeVisible();
-  await expect(page.locator("img[alt='OpenDevice Forge 插件市场实装截图']")).toBeVisible();
+  await expect(page.locator("img[alt='OpenDevice Forge 模块中心实装截图']")).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.screenshot({ path: resolve(screenshotDir, "site-desktop.png"), fullPage: true });
